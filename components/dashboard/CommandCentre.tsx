@@ -2506,7 +2506,7 @@ const OrganizationPage = React.memo(function OrganizationPage({
   }
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .org-header { margin-bottom: 18px; }
@@ -2645,7 +2645,7 @@ const OrganizationDashboard = React.memo(function OrganizationDashboard({
   }
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .org-title { font-size: 1.3rem; font-weight: 700; color: #f5f0e8; }
@@ -7409,7 +7409,7 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   const STANCE_COLORS = bankingData.STANCE_COLORS
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .bnk-header { margin-bottom: 18px; }
@@ -7928,7 +7928,7 @@ const NotificationCentrePage = React.memo(function NotificationCentrePage({
   }, [allNotifs, readIds])
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .nc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -8410,7 +8410,7 @@ const KybVerificationPage = React.memo(function KybVerificationPage({
   const categories = Object.keys(KYB_CATEGORY_LABELS) as KybCategory[]
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .kyb-header { margin-bottom: 18px; }
@@ -8827,7 +8827,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   const tiers    = Object.keys(TIER_LABELS)    as (keyof typeof TIER_LABELS)[]
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .pi-header { margin-bottom: 16px; }
@@ -9235,7 +9235,7 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
   const regions  = ['Europe', 'Americas', 'Asia-Pacific', 'Africa']
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .log-header { margin-bottom: 16px; }
@@ -9528,7 +9528,7 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
   const types     = Object.keys(JOB_TYPE_LABELS)   as JobType[]
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <div className="cc-two-main">
         <style>{`
 .jb-header { margin-bottom: 16px; }
@@ -9874,7 +9874,7 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
   const homeCountry = country.iso2
 
   return (
-    <div className="cc-two-col-page">
+    <div className="cc-page cc-two-col-page">
       <style>{`
         .ins-card { background: rgba(255,255,255,.04); border-radius: 12px; border: 1px solid rgba(255,255,255,.08); padding: 18px 20px; margin-bottom: 14px; transition: border-color .15s; }
         .ins-card:hover { border-color: rgba(212,168,75,.35); }
@@ -10150,7 +10150,7 @@ const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
   }
 
   return (
-    <div style={{ padding: '20px 24px', maxWidth: 1080, margin: '0 auto' }}>
+    <div className="cc-page" style={{ padding: '20px 24px', maxWidth: 1080, margin: '0 auto' }}>
       <style>{`
         .lt-stat { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 14px 18px; flex: 1; cursor: pointer; transition: border-color .15s; }
         .lt-stat:hover { border-color: rgba(212,168,75,.3); }
@@ -10460,7 +10460,7 @@ const LandedCostPage = React.memo(function LandedCostPage({
   const customMarginHigh = sell && result.totalLandedPerKg.low  > 0 ? ((sell - result.totalLandedPerKg.low ) / sell) * 100 : null
 
   return (
-    <div style={{ padding: '20px 24px' }}>
+    <div className="cc-page" style={{ padding: '20px 24px' }}>
       <style>{`
         .tc-panel { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 18px 20px; }
         .tc-inp { width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 8px 11px; color: #f5f0e8; font-size: .82rem; outline: none; }
