@@ -186,11 +186,16 @@ export function shouldStartReveal({
   loading: boolean
   prefersReducedMotion: boolean
 }): boolean {
-  if (loading) return false
   if (prefersReducedMotion) return true
   const fullOrbit = azimuthAccumRad >= GLOBE_INTRO.fullOrbitRad * 0.98
   const timedOut = spinElapsedMs >= GLOBE_INTRO.spinMaxDurationMs
-  return fullOrbit || timedOut
+
+  // Live regulatory data enriches the globe but must never gate navigation.
+  // A slow/degraded bootstrap may delay the normal full-orbit reveal, but the
+  // hard intro timeout always releases pointer/touch interaction.
+  if (timedOut) return true
+  if (loading) return false
+  return fullOrbit
 }
 
 export function shouldFinishReveal({
