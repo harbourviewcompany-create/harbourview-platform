@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
-import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Global Cannabis Markets — Weekly Intelligence Briefings | Harbourview',
@@ -63,7 +62,12 @@ async function getAllBriefings(): Promise<Briefing[]> {
     .select('country_iso2, country_name, headline, legal_status, market_maturity, summary, week_ending, signal_count')
     .eq('status', 'published')
     .order('week_ending', { ascending: false })
-  guardIsrQuery(error, 'markets: jurisdiction_briefings')
+  if (error) {
+    console.error('[markets] jurisdiction_briefings unavailable', {
+      message: error.message,
+    })
+    return []
+  }
 
   if (!data) return []
 
