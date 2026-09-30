@@ -611,6 +611,39 @@ test('replay uses the canonical globally-unique pathway slug for Lithuania confl
   assert.match(schema, /create table public\.regulatory_pathways[\s\S]*slug text not null unique/i)
 })
 
+test('replay advances the inherited full-depth contract defaults from v1 to v2 before matrix seeding', () => {
+  const file = '20260923065000_full_291x32_depth_control_plane.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 2)
+
+  const v1Dimensions = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260922230000_full_depth_intelligence_contract.sql'),
+    'utf8',
+  )
+  const v1State = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260922233000_full_depth_dimension_state_matrix.sql'),
+    'utf8',
+  )
+  assert.match(v1Dimensions, /contract_version text not null default '2026-09-22\.v1'/i)
+  assert.match(v1State, /contract_version text not null default '2026-09-22\.v1'/i)
+
+  const dimensionsPatch = patches.find((item) =>
+    item.replacement.includes('alter table public.jurisdiction_data_depth_dimensions'),
+  )
+  const statePatch = patches.find((item) =>
+    item.replacement.includes('alter table public.jurisdiction_data_depth_dimension_state'),
+  )
+  assert.ok(dimensionsPatch)
+  assert.ok(statePatch)
+  assert.match(dimensionsPatch.replacement, /set default '2026-09-23\.v2'/i)
+  assert.match(statePatch.replacement, /set default '2026-09-23\.v2'/i)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+})
 test('production-local relation guard is suppressed when the exact migration is absent', () => {
   assert.deepEqual(planReplayContentPatches({ migrationFiles: [] }), [])
 })
