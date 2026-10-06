@@ -12,11 +12,11 @@ describe('platform health cron', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     probePlatformHealth.mockReset()
-    process.env.CRON_SECRET = 'cron-secret'
+    process.env.CRON_SECRET = 'example-cron-secret'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-public-key'
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    process.env.RESEND_API_KEY = 'resend-key'
+    process.env.RESEND_API_KEY = 'example-resend-key'
     process.env.HARBOURVIEW_TO_EMAIL = 'ops@example.com'
     process.env.HARBOURVIEW_FROM_EMAIL = 'alerts@example.com'
   })
@@ -40,7 +40,7 @@ describe('platform health cron', () => {
 
     const response = await GET(new Request(
       'https://harbourview.example/api/cron/platform-health',
-      { headers: { authorization: 'Bearer cron-secret' } },
+      { headers: { authorization: 'Bearer example-cron-secret' } },
     ))
 
     expect(response.status).toBe(200)
@@ -61,7 +61,7 @@ describe('platform health cron', () => {
 
     const response = await GET(new Request(
       'https://harbourview.example/api/cron/platform-health',
-      { headers: { authorization: 'Bearer cron-secret' } },
+      { headers: { authorization: 'Bearer example-cron-secret' } },
     ))
     const body = await response.json()
 
