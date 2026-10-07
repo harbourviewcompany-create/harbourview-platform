@@ -16,6 +16,11 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const PROVIDER_ORDER = (Deno.env.get("CLASSIFY_PROVIDER_ORDER") ?? "openai").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const MODELS = { anthropic: "claude-haiku-4-5", gemini: "gemini-3.5-flash", openai: "gpt-4o-mini" };
+// Classifier identity (must match harvest stamp in hv_classify_corpus_harvest):
+//   hv-classify/openai/v3-content-type-strict
+// Prompt delta vs v2-summary-fix: stricter content_type + impact bands.
+// Input formatting (bodyIsRedundant) unchanged from v14/v2.
+
 const QUALITY = ["signal", "boilerplate", "spam", "nav", "duplicate"];
 const CONTENT = ["regulatory", "market", "story", "research", "noise"];
 const IMPACT = ["high", "medium", "low"];
@@ -30,7 +35,16 @@ Given a headline and extracted body text from a web page, output STRICT JSON onl
     nav = menus, breadcrumbs, pagination, link/report lists, login/register.
     duplicate = only when explicitly told of a specific other item; otherwise do not use.
 - content_type: one of regulatory|market|story|research|noise. Use noise if and only if quality_label != signal.
+    When quality_label = signal, choose content_type by primary meaning:
+    regulatory = government, agency, ministry, legislature, court, regulator, gazette, statute, bill, licence/license issuance or revocation, quota, import/export permit, scheduling, enforcement action.
+    market = price, sales volume, revenue, M&A, funding, listing, product launch with commercial framing, supply shortage/surplus, trade flow.
+    story = company or industry narrative, leadership change, facility opening, partnership announcement without a binding regulatory act, culture/consumer angle that is still on-topic.
+    research = clinical trial, peer-reviewed study, systematic review, published efficacy/safety data.
+    If two types apply, prefer regulatory over market over story over research.
 - impact: high|medium|low
+    high = binding legal change, major licence, nationwide policy, material market shock, pivotal trial result.
+    medium = significant but limited jurisdiction or commercial move.
+    low = minor, local, or incremental.
 - confidence: number 0.0-1.0
 - reason: under 12 words
 CRITICAL -- how to read the BODY field. BODY is machine-extracted and is very often missing, truncated, or a near-verbatim echo of the HEADLINE. That is an artifact of our scraper, NOT a property of the source page. Never label something boilerplate merely because BODY is absent, short, or repeats the HEADLINE, and never justify a label with "repeated content" or "no new information" on that basis. "Repeated" means recurring across different pages of a site -- it never refers to overlap between the HEADLINE and BODY fields. When BODY adds nothing, judge the HEADLINE alone on its merits: if it names a specific actor doing a specific thing, it is a signal.
@@ -84,12 +98,6 @@ async function rawProvider(name, system, user, opts = {}) {
     if (!opts.noJsonMode) body.response_format = { type: "json_object" };
     let res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_API_KEY}` }, body: JSON.stringify(body) });
     if (res.status === 429) {
-      // 2026-07-21: with Anthropic/Gemini billing-blocked, OpenAI carries
-      // 100% of classification traffic -- a burst of sequential calls (eval
-      // batches, or this function's own noJsonMode re-attempt below) can
-      // now trip its rate limit where it previously never would have,
-      // since load used to spread across 3 providers. One backoff-retry
-      // before giving up.
       await new Promise((r) => setTimeout(r, 1500));
       res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_API_KEY}` }, body: JSON.stringify(body) });
     }
@@ -97,14 +105,6 @@ async function rawProvider(name, system, user, opts = {}) {
     const d = await res.json();
     const parsed = extractJson(d?.choices?.[0]?.message?.content ?? "");
     if (parsed) return parsed;
-    // 2026-07-21: same-provider retry, once, without forced JSON mode.
-    // Observed a persistent (not transient -- same rows failed identically
-    // across repeated invocations over 2 days) empty/unparseable response
-    // from OpenAI's response_format=json_object path on a subset of inputs.
-    // Plain chat-completion mode + our own regex extraction is a genuinely
-    // different code path that can succeed where json_object mode returns
-    // empty content. With Anthropic/Gemini billing-blocked, this retry is
-    // the real fallback now, not a formality.
     if (!opts.noJsonMode) return rawProvider(name, system, user, { noJsonMode: true });
     return null;
   }
