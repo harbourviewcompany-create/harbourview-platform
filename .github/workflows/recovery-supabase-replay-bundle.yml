@@ -33,9 +33,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp \
-            supabase/migrations/20260926032000_repair_fo_gl_regulatory_evidence_fk.sql \
-            supabase/migrations/20260922111959_replay_repair_fo_gl_regulatory_evidence_fk.sql
+          cat > supabase/migrations/20260922111959_replay_seed_fo_gl_regulatory_evidence.sql <<'SQL'
+          -- Recovery-only zero-state prerequisite. The historical claim migration
+          -- references these evidence keys before the later canonical FK repair runs.
+          insert into public.regulatory_market_access_evidence(
+            evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,
+            source_effective_date,verified_at,expires_at,active
+          )
+          values
+          (
+            'hv-mkt-complete-fo-20260913','FO','medical_limited_trade',
+            'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; authorized activity is within the medical/scientific framework and no general adult-use retail pathway is established by the cited instrument.',
+            'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
+            'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer',
+            date '2026-05-26',now(),now()+interval '1 year',true
+          ),
+          (
+            'hv-mkt-complete-gl-20260913','GL','medical_limited_trade',
+            'Greenland controlled-substance law places cannabis within an authorization-based medical/scientific framework; no general adult-use commercial retail pathway is established by the cited framework.',
+            'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
+            'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',
+            null,now(),now()+interval '1 year',true
+          )
+          on conflict (evidence_key) do update set
+            tier=excluded.tier,
+            rationale=excluded.rationale,
+            authority_name=excluded.authority_name,
+            authority_url=excluded.authority_url,
+            source_effective_date=excluded.source_effective_date,
+            verified_at=excluded.verified_at,
+            expires_at=excluded.expires_at,
+            active=true;
+          SQL
 
       - name: Build replay manifest
         shell: bash
