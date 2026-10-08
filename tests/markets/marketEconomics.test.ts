@@ -39,6 +39,29 @@ describe('market economics reviewed snapshot', () => {
     expect(australia?.importContext?.sourceLabel).toBe('Australian Office of Drug Control')
   })
 
+  it('pins the latest reviewed downstream comparator snapshots', () => {
+    expect(getMarketEconomics('DE')?.downstreamPrice).toMatchObject({
+      value: 4.97,
+      currency: 'EUR',
+      unit: 'g',
+      asOf: '2026-10-01',
+    })
+    expect(getMarketEconomics('GB')?.downstreamPrice).toMatchObject({
+      value: 8.87,
+      currency: 'GBP',
+      unit: 'g',
+      asOf: '2026-10-06',
+    })
+    expect(getMarketEconomics('PL')?.downstreamPrice).toMatchObject({
+      value: 38.08,
+      currency: 'PLN',
+      unit: 'g',
+      asOf: '2026-10-01',
+    })
+    expect(getMarketEconomics('NZ')?.downstreamPrice?.asOf).toBe('2026-09-11')
+  })
+
+
   it('does not expose raw source URLs in client-visible snapshots', () => {
     expect(JSON.stringify(MARKET_ECONOMICS)).not.toContain('https://')
   })
