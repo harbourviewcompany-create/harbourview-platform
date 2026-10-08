@@ -22,7 +22,6 @@ values
 ('US-MN','commercial_activity','licensed_market','{"adult_use_cannabis_industry_has_state_licensing_and_regulation":true}'::jsonb,'https://mn.gov/ocm/laws/cannabis-law.jsp','2023-05-30','verified','2026-09-23T00:00:00Z'),
 ('US-MN','testing','testing_and_labeling_required','{"cannabis_and_hemp_products_require_testing_and_labeling":true}'::jsonb,'https://mn.gov/ocm/laws/cannabis-law.jsp','2023-05-30','verified','2026-09-23T00:00:00Z'),
 ('US-MO','commercial_activity','licensed_medical_and_adult_use_market','{"medical_and_adult_use_marijuana_are_licensed_and_regulated":true}'::jsonb,'https://health.mo.gov/business-professionals/cannabis-regulation/cannabis-rules-and-law','2018-11-06','verified','2026-09-23T00:00:00Z'),
-('US-MO','calendar','current_rules_effective','{"rule_set":"19 CSR 100-1","effective_date":"2026-05-30"}'::jsonb,'https://health.mo.gov/business-professionals/cannabis-regulation/cannabis-rules-and-law','2026-05-30','verified','2026-09-23T00:00:00Z'),
 ('US-NM','commercial_activity','licensed_market','{"cannabis_control_division_oversees_licensing_and_compliance":true}'::jsonb,'https://www.nm.gov/departments-and-agencies/regulation-and-licensing-department/','2021-06-29','verified','2026-09-23T00:00:00Z')
 on conflict do nothing;
 
