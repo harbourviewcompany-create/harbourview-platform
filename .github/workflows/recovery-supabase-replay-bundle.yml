@@ -66,6 +66,21 @@ jobs:
             active=true;
           SQL
 
+      - name: Replace production-local TV country UUID for zero-state replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("supabase/migrations/20260922120000_primary_tv_va_source_enrichment.sql")
+          s = p.read_text()
+          old = "values('39d4e117-d0ae-4669-8f0c-b631afee0ef1','TV','depth-v1-tv'"
+          new = "values((select id from public.countries where iso_alpha2='TV'),'TV','depth-v1-tv'"
+          if s.count(old) != 1:
+              raise SystemExit("TV production UUID replay anchor mismatch")
+          p.write_text(s.replace(old, new))
+          PY
+
       - name: Build replay manifest
         shell: bash
         run: |
