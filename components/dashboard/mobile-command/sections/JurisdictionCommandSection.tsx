@@ -602,16 +602,37 @@ export function JurisdictionSection(props: Props) {
                 <div className={styles.smallMeta}><span>Opportunity score {item.opportunityScore}</span><span>{item.dataCompleteness ? `Coverage ${humanizeJurisdictionStatus(item.dataCompleteness)}` : 'Coverage under review'}</span></div>
                 {item.economics ? (
                   <>
-                    <div className={styles.smallMeta}>
-                      {item.economics.upstreamPrice ? <span>Upstream price {item.economics.upstreamPrice.displayValue} · {item.economics.upstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.upstreamPrice.asOf}</span> : null}
-                      {item.economics.downstreamPrice ? <span>Downstream comparator {item.economics.downstreamPrice.displayValue} · {item.economics.downstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.downstreamPrice.asOf}</span> : null}
-                    </div>
+                    {item.economics.upstreamPrice ? (
+                      <>
+                        <div className={styles.smallMeta}>
+                          <span>Upstream price {item.economics.upstreamPrice.displayValue} · {item.economics.upstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.upstreamPrice.asOf}</span>
+                          <span>{humanizeJurisdictionStatus(item.economics.upstreamPrice.confidence)} confidence</span>
+                        </div>
+                        <div className={styles.smallMeta}>
+                          <span>{item.economics.upstreamPrice.basis}</span>
+                          <span>{item.economics.upstreamPrice.sourceLabel}</span>
+                        </div>
+                      </>
+                    ) : null}
+                    {item.economics.downstreamPrice ? (
+                      <>
+                        <div className={styles.smallMeta}>
+                          <span>Downstream comparator {item.economics.downstreamPrice.displayValue} · {item.economics.downstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.downstreamPrice.asOf}</span>
+                          <span>{humanizeJurisdictionStatus(item.economics.downstreamPrice.confidence)} confidence</span>
+                        </div>
+                        <div className={styles.smallMeta}>
+                          <span>{item.economics.downstreamPrice.basis}</span>
+                          <span>{item.economics.downstreamPrice.sourceLabel}</span>
+                        </div>
+                      </>
+                    ) : null}
                     {item.economics.importContext ? (
                       <div className={styles.smallMeta}>
                         <span>Imports {item.economics.importContext.totalKg.toLocaleString()} kg · {item.economics.importContext.period}</span>
                         {item.economics.importContext.canadianKg != null && item.economics.importContext.totalKg > 0 ? (
                           <span>Canada share {Math.round((item.economics.importContext.canadianKg / item.economics.importContext.totalKg) * 100)}%</span>
                         ) : null}
+                        <span>{item.economics.importContext.sourceLabel}</span>
                       </div>
                     ) : null}
                   </>
