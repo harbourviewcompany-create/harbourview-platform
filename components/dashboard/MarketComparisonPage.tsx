@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { formatMarketPrice, getMarketEconomics } from '@/data/harbourview/market-economics'
 
 type Market = {
   iso2: string
@@ -51,11 +52,17 @@ export function MarketComparisonPage({ initialCountryIso2, countryOptions }: Pro
   const rows = useMemo(() => {
     const a = markets.find(m => m.iso2 === left)
     const b = markets.find(m => m.iso2 === right)
+    const economicsA = getMarketEconomics(left)
+    const economicsB = getMarketEconomics(right)
+    const importVolume = (totalKg?: number) => totalKg == null ? '—' : `${totalKg.toLocaleString()} kg`
     return [
       ['Market access', a?.marketAccessStatus ?? '—', b?.marketAccessStatus ?? '—'],
       ['Opportunity', score(a?.opportunityScore ?? null), score(b?.opportunityScore ?? null)],
       ['Activity', a?.signalsStatus ?? '—', b?.signalsStatus ?? '—'],
       ['Regulatory tier', a?.regulatoryTier ?? '—', b?.regulatoryTier ?? '—'],
+      ['Upstream price signal', formatMarketPrice(economicsA?.upstreamPrice), formatMarketPrice(economicsB?.upstreamPrice)],
+      ['Downstream comparator', formatMarketPrice(economicsA?.downstreamPrice), formatMarketPrice(economicsB?.downstreamPrice)],
+      ['Annual import context', importVolume(economicsA?.importContext?.totalKg), importVolume(economicsB?.importContext?.totalKg)],
     ]
   }, [markets, left, right])
 
@@ -67,7 +74,7 @@ export function MarketComparisonPage({ initialCountryIso2, countryOptions }: Pro
         <div>
           <div className="cc-eyebrow">MARKET INTELLIGENCE</div>
           <h1 className="cc-page-title-large">Compare markets</h1>
-          <p className="cc-page-subtitle">Compare the current Harbourview market context without changing the live globe.</p>
+          <p className="cc-page-subtitle">Compare market access, current commercial price signals and Harbourview opportunity context without changing the live globe.</p>
         </div>
       </div>
 
