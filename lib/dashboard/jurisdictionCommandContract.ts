@@ -139,12 +139,32 @@ export type JurisdictionDataDepthDTO = {
   latestPathwayVerifiedAt: string | null
 }
 
+export type JurisdictionComparisonEconomicsPriceDTO = {
+  displayValue: string
+  basis: string
+  asOf: string
+  confidence: 'high' | 'medium' | 'low'
+  sourceLabel: string
+}
+
+export type JurisdictionComparisonEconomicsDTO = {
+  upstreamPrice: JurisdictionComparisonEconomicsPriceDTO | null
+  downstreamPrice: JurisdictionComparisonEconomicsPriceDTO | null
+  importContext: {
+    totalKg: number
+    canadianKg: number | null
+    period: string
+    sourceLabel: string
+  } | null
+}
+
 export type JurisdictionComparisonDTO = {
   iso2: string
   name: string
   opportunityScore: number
   marketAccessStatus: string | null
   dataCompleteness: string | null
+  economics: JurisdictionComparisonEconomicsDTO | null
 }
 
 export type JurisdictionRouteResolutionDTO = {
