@@ -82,7 +82,10 @@ describe('Jurisdiction Command production contracts', () => {
     expect(sectionSource).toContain('Upstream price')
     expect(sectionSource).toContain('Downstream comparator')
     expect(sectionSource).toContain('Canada share')
-    expect(sectionSource).not.toContain('sourceUrl')
+    expect(sectionSource).not.toContain('item.economics.upstreamPrice.sourceUrl')
+    expect(sectionSource).not.toContain('item.economics.downstreamPrice.sourceUrl')
+    expect(routeSource).not.toContain('sourceUrl: economics.upstreamPrice')
+    expect(routeSource).not.toContain('sourceUrl: economics.downstreamPrice')
   })
 
 
