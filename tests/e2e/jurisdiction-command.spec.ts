@@ -79,6 +79,8 @@ test.describe('Jurisdiction Command mobile evidence', () => {
         await expect(page.getByRole('heading', { name: 'Verified counterparties', exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Can this answer be trusted?', exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Compare access posture', exact: true })).toBeVisible()
+        await expect(page.getByText(/Upstream price .*\/kg/).first()).toBeVisible()
+        await expect(page.getByText('Canada share 61%', { exact: true })).toBeVisible()
         await expect(page.getByText('Country-level access remains available in All roles')).toBeVisible()
         await expect(page.getByText('No access pathway is available for this context', { exact: false })).toHaveCount(0)
         await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
