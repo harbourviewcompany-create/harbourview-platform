@@ -8,7 +8,6 @@ export type MarketPriceMetric = {
   asOf: string
   confidence: MarketPriceConfidence
   sourceLabel: string
-  sourceUrl: string
   sourceType: 'official' | 'trade-data-analysis' | 'market-tracker'
 }
 
@@ -17,7 +16,6 @@ export type MarketImportContext = {
   canadianKg?: number
   period: string
   sourceLabel: string
-  sourceUrl: string
 }
 
 export type MarketEconomicsSnapshot = {
@@ -41,7 +39,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-06-30',
       confidence: 'high',
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
-      sourceUrl: 'https://cannamonitor.com/australia/',
       sourceType: 'trade-data-analysis',
     },
     downstreamPrice: {
@@ -52,7 +49,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-10-08',
       confidence: 'high',
       sourceLabel: 'Grammpreis',
-      sourceUrl: 'https://grammpreis.de/preise',
       sourceType: 'market-tracker',
     },
     note: 'German wholesale flower has broken below the €2/g line in current market analysis; declared Canadian export values are a directional upstream benchmark, not a like-for-like distributor contract.',
@@ -68,7 +64,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-06-30',
       confidence: 'high',
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
-      sourceUrl: 'https://cannamonitor.com/australia/',
       sourceType: 'trade-data-analysis',
     },
     importContext: {
@@ -76,7 +71,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       canadianKg: 49107,
       period: '2025',
       sourceLabel: 'Australian Office of Drug Control',
-      sourceUrl: 'https://www.odc.gov.au/australian-cannabis-data-import-export-production-and-stock',
     },
     note: 'Australia is a high-volume but aggressively price-compressed market; 2025 imported stock and domestic production both remained substantial.',
   },
@@ -91,7 +85,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-06-30',
       confidence: 'high',
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
-      sourceUrl: 'https://cannamonitor.com/australia/',
       sourceType: 'trade-data-analysis',
     },
     note: 'Malta is primarily useful as a regulated processing/import node; upstream pricing should not be treated as Maltese patient sell-through.',
@@ -107,7 +100,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-06-30',
       confidence: 'high',
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
-      sourceUrl: 'https://cannamonitor.com/australia/',
       sourceType: 'trade-data-analysis',
     },
     note: 'Portugal functions heavily as a processing and re-export hub, so import value is not a direct proxy for domestic patient demand.',
@@ -123,7 +115,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-06-30',
       confidence: 'high',
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
-      sourceUrl: 'https://cannamonitor.com/australia/',
       sourceType: 'trade-data-analysis',
     },
     note: 'Czechia has a private-distributor import model and is also used as a European processing/export route.',
@@ -139,7 +130,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-10-01',
       confidence: 'medium',
       sourceLabel: 'Kanaba / GdziePoLek market snapshot',
-      sourceUrl: 'https://kanaba.pl/artykuly/ile-kosztuje-medyczna-marihuana-w-aptece-ceny-suszy/',
       sourceType: 'market-tracker',
     },
     note: 'This is a patient-level pharmacy comparator, not an importer or distributor purchase price.',
@@ -155,7 +145,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-10-08',
       confidence: 'medium',
       sourceLabel: 'LeafMe UK Medical Cannabis Price Index',
-      sourceUrl: 'https://leafme.co.uk/price-index',
       sourceType: 'market-tracker',
     },
     note: 'Public UK B2B wholesale contracts are not transparent enough for a current like-for-like wholesale quote; this is a downstream comparator only.',
@@ -171,7 +160,6 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       asOf: '2026-09-15',
       confidence: 'medium',
       sourceLabel: 'Whakamana Cannabis Museum market review',
-      sourceUrl: 'https://cannabismuseum.co.nz/blogs/news/medicinal-cannabis-cost-nz',
       sourceType: 'market-tracker',
     },
     note: 'Reported common retail range is approximately NZ$10.50–13.60/g; the single value shown is a conservative comparator, not a wholesale quote.',
