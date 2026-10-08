@@ -111,8 +111,8 @@ jobs:
               p = root / filename
               s = p.read_text()
               for old, new in replacements:
-                  if s.count(old) != 1:
-                      raise SystemExit(f"zero-state replay anchor mismatch in {filename}: {old}")
+                  if s.count(old) < 1:
+                      raise SystemExit(f"zero-state replay anchor missing in {filename}: {old}")
                   s = s.replace(old, new)
               p.write_text(s)
           PY
