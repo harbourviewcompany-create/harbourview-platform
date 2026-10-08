@@ -65,6 +65,7 @@ export function MarketEconomicsSnapshot() {
                       <>
                         <div>{market.importContext.totalKg.toLocaleString()} kg imported ({market.importContext.period})</div>
                         {market.importContext.canadianKg != null ? <div style={{ marginTop: 4, color: 'rgba(245,240,232,.38)' }}>{market.importContext.canadianKg.toLocaleString()} kg from Canada</div> : null}
+                        <div style={{ marginTop: 4, color: 'rgba(245,240,232,.32)' }}>Source updated {market.importContext.sourceUpdatedAt} · {confidenceLabel(market.importContext.confidence)}</div>
                       </>
                     ) : '—'}
                   </td>
