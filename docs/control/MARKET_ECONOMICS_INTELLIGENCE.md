@@ -20,8 +20,9 @@ Every displayed price metric must include:
 - a plain-language basis
 - an explicit `asOf` date
 - confidence
-- source label and HTTPS URL
+- source label in the client-visible snapshot
 - source type
+- HTTPS source URL in the server-only provenance registry
 
 The UI must distinguish:
 
@@ -61,11 +62,15 @@ This module does not:
 
 Updates are code-reviewed snapshots until a dedicated reviewed-data ingestion path is designed and validated.
 
+## Provenance boundary
+
+Raw source URLs live in `data/harbourview/market-economics-sources.server.ts`, which imports `server-only`. The client-visible snapshot deliberately carries source labels but no URLs. This follows `PR_REVIEW_CHECKLIST.md`'s public-leakage boundary while preserving reproducible internal provenance.
+
 ## Competitive benchmark
 
 Prohibition Partners and other market-research products provide country-level market sizing and narrative. Price-comparison sites provide highly current retail pricing but little market-access context.
 
-Harbourview's differentiator on this surface is the combination of **regulatory market access + reviewed upstream trade pricing + downstream comparator + freshness/confidence + direct source provenance** in the same country decision workflow.
+Harbourview's differentiator on this surface is the combination of **regulatory market access + reviewed upstream trade pricing + downstream comparator + freshness/confidence + reviewed provenance** in the same country decision workflow. Public surfaces show source labels only; raw source URLs remain server-only under the public-leakage control.
 
 ## Verification
 
