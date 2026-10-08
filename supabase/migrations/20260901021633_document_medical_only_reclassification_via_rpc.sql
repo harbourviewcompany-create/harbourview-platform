@@ -39,11 +39,24 @@ SET market_access_status = CASE regulatory_tier
   WHEN 'prohibited'              THEN 'restricted'
   ELSE 'unknown'
 END::market_access_status
-WHERE market_access_status IS DISTINCT FROM (CASE regulatory_tier
+-- Zero-state replay: production types countries.market_access_status as the enum
+-- public.market_access_status, but repository history types it text. The earliest
+-- creator, 20260604000000_countries_public_table_v1.sql, predates the enum (not
+-- created until 20260710114720), and whatever migration converted the column in
+-- production was applied out of band with no repository file. Against a text
+-- column the original enum-cast comparison raises
+-- "operator does not exist: text = market_access_status".
+--
+-- Comparing as text is equivalent under both column shapes, because enum labels
+-- map one-to-one onto their text spellings. Verified live 2026-09-06 against
+-- project zvxdgdkukjrrwamdpqrg: both predicates select the same 23 rows. The SET
+-- clause above is deliberately untouched -- assigning the enum-cast value
+-- resolves through an assignment cast under either shape.
+WHERE market_access_status::text IS DISTINCT FROM (CASE regulatory_tier
   WHEN 'legal_commercial_access' THEN 'open'
   WHEN 'medical_limited_trade'   THEN 'regulated'
   WHEN 'domestic_only'           THEN 'emerging'
   WHEN 'cbd_hemp_only'           THEN 'limited'
   WHEN 'prohibited'              THEN 'restricted'
   ELSE 'unknown'
-END::market_access_status);
+END);
