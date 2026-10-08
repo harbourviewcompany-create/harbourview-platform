@@ -31,7 +31,7 @@ on conflict(claim_key) do update set claim_text=excluded.claim_text,evidence_sta
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
-select '1a237176-7a4f-43ba-9d94-ea63b9ad3382','MC','depth-v1-mc-authorized-non-narcotic-cannabis',
+select (select id from public.countries where iso_alpha2='MC'),'MC','depth-v1-mc-authorized-non-narcotic-cannabis',
 'Authorized non-narcotic cannabis varieties','domestic_authorization','Ministerial Order No. 91-368, Article 32 II','Monaco Minister of State','active','2019-08-07',
 'Cultivation, import, export and industrial/commercial use of cannabis varieties without narcotic properties may be authorized by ministerial order. This is not a general adult-use cannabis pathway.',
 array['https://legimonaco.mc/tnc/arrete-ministeriel/1991/07-02-91-368/?V=pdf&contentName=arrete-ministeriel+n%C2%B0+91-368+%281991-07-02%29.pdf'],'needs_review',now()
