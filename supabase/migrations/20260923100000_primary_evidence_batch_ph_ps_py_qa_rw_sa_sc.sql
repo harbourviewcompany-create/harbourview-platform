@@ -89,43 +89,10 @@ on conflict (evidence_key) do update set
   expires_at=excluded.expires_at,
   active=true;
 
--- Add explicit citation records tied to the newly adjudicated evidence.
-insert into public.regulatory_citations
-(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
-select
-  'regulatory_market_access_evidence',
-  e.id,
-  case e.jurisdiction_iso2
-    when 'PH' then 'DDB/PDEA cannabis reclassification statement'
-    when 'PS' then 'Palestine Ministry of Health narcotics-law index'
-    when 'PY' then 'SENAD Registro y Fiscalización'
-    when 'QA' then 'Qatar Drug Enforcement Department narcotics law'
-    when 'RW' then 'Rwanda FDA pharmaceutical import/export guidance'
-    when 'SA' then 'Umm al-Qura controlled-substance schedules'
-    when 'SC' then 'State House Seychelles government statement'
-  end,
-  null,
-  'official',
-  e.authority_url,
-  e.source_effective_date,
-  current_date,
-  e.rationale
-from public.regulatory_market_access_evidence e
-where e.evidence_key in (
-  'primary-evidence-ph-ddb-cannabis-20260923',
-  'primary-evidence-ps-moh-narcotics-2013-20260923',
-  'primary-evidence-py-senad-medicinal-cannabis-20260923',
-  'primary-evidence-qa-moi-controlled-cannabis-20260923',
-  'primary-evidence-rw-fda-medical-cannabis-20260923',
-  'primary-evidence-sa-ummalqura-cannabis-20260923',
-  'primary-evidence-sc-government-marijuana-20260923'
-)
-and not exists (
-  select 1 from public.regulatory_citations rc
-  where rc.entity_type='regulatory_market_access_evidence'
-    and rc.entity_id=e.id
-    and rc.citation_url=e.authority_url
-);
+-- Recovery replay: the reconstructed regulatory_market_access_evidence table
+-- is keyed by evidence_key and has no UUID id column, while regulatory_citations.entity_id
+-- is UUID. Preserve the evidence rows and their authority_url/rationale provenance;
+-- do not fabricate a citation identity that the schema cannot represent.
 
 -- Preserve fail-closed execution semantics: these new rows have no captured
 -- source hash yet, so the claim layer must remain partial until the source engine
