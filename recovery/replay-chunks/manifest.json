@@ -1,0 +1,177 @@
+[
+  {
+    "file": "recovery/replay-chunks/001.sql",
+    "first": "20260301001000_harden_user_roles_grants.sql",
+    "last": "20260607140000_cannabis_data_contract_v1_p0_p1.sql",
+    "count": 42,
+    "bytes": 314938
+  },
+  {
+    "file": "recovery/replay-chunks/002.sql",
+    "first": "20260607230000_hv_bge_m3_1024_dim_embedding_column_and_search.sql",
+    "last": "20260621000000_education_cpd_and_drug_interaction.sql",
+    "count": 90,
+    "bytes": 301186
+  },
+  {
+    "file": "recovery/replay-chunks/003.sql",
+    "first": "20260621220513_cultivar_passport_network_p0_synfix.sql",
+    "last": "20260621234246_seed_briefings_africa_f.sql",
+    "count": 17,
+    "bytes": 310710
+  },
+  {
+    "file": "recovery/replay-chunks/004.sql",
+    "first": "20260621234326_seed_briefings_mideast_a.sql",
+    "last": "20260622000006_stub_countries_classify.sql",
+    "count": 11,
+    "bytes": 279545
+  },
+  {
+    "file": "recovery/replay-chunks/005.sql",
+    "first": "20260622000007_jurisdiction_playbooks_tier1_seed.sql",
+    "last": "20260622154920_gap_e_education_track3_country_intel.sql",
+    "count": 23,
+    "bytes": 312063
+  },
+  {
+    "file": "recovery/replay-chunks/006.sql",
+    "first": "20260622155031_gap_e_education_track4_clinical_med.sql",
+    "last": "20260623192021_intelligence_worker_v2_distributed_safety_part2.sql",
+    "count": 31,
+    "bytes": 319485
+  },
+  {
+    "file": "recovery/replay-chunks/007.sql",
+    "first": "20260623212142_security_rls_and_function_hardening.sql",
+    "last": "20260702014108_seed_module2_sections_21.sql",
+    "count": 103,
+    "bytes": 317938
+  },
+  {
+    "file": "recovery/replay-chunks/008.sql",
+    "first": "20260702033107_regulatory_product_format_matrix.sql",
+    "last": "20260705110051_tighten_overgranted_permissions.sql",
+    "count": 78,
+    "bytes": 317812
+  },
+  {
+    "file": "recovery/replay-chunks/009.sql",
+    "first": "20260705110551_country_intel_enrichment.sql",
+    "last": "20260707194140_replace_lesotho_source_industry_to_mainstream.sql",
+    "count": 52,
+    "bytes": 318263
+  },
+  {
+    "file": "recovery/replay-chunks/010.sql",
+    "first": "20260707200656_signals_digest_step2_boilerplate_quality_filter.sql",
+    "last": "20260710165848_classify_remaining_8_countries_without_briefings.sql",
+    "count": 84,
+    "bytes": 303079
+  },
+  {
+    "file": "recovery/replay-chunks/011.sql",
+    "first": "20260710170100_jurisdiction_playbooks_batch20b_content.sql",
+    "last": "20260712070954_cleanup_v3_fallback_test.sql",
+    "count": 45,
+    "bytes": 301181
+  },
+  {
+    "file": "recovery/replay-chunks/012.sql",
+    "first": "20260712130917_batch_13_playbooks_metrics_overlay_sm_vc_lb_ma.sql",
+    "last": "20260714190000_jurisdiction_playbooks_batch22a_sources.sql",
+    "count": 34,
+    "bytes": 302408
+  },
+  {
+    "file": "recovery/replay-chunks/013.sql",
+    "first": "20260714190100_jurisdiction_playbooks_batch22b_content.sql",
+    "last": "20260719215904_fix_signals_quality_to_respect_rejected_action.sql",
+    "count": 53,
+    "bytes": 313035
+  },
+  {
+    "file": "recovery/replay-chunks/014.sql",
+    "first": "20260719230517_fix_editorial_digest_fallback_status_code_durability.sql",
+    "last": "20260723084602_stage_c_classifier_validation_gate.sql",
+    "count": 85,
+    "bytes": 318560
+  },
+  {
+    "file": "recovery/replay-chunks/015.sql",
+    "first": "20260723084746_stage_f_hard_dispatch_ceilings.sql",
+    "last": "20260730211325_seed_supply_catalog_canada_starter.sql",
+    "count": 64,
+    "bytes": 313405
+  },
+  {
+    "file": "recovery/replay-chunks/016.sql",
+    "first": "20260730211507_seed_supply_catalog_canada_batch2.sql",
+    "last": "20260808190400_restore_harbourview_admin_guard.sql",
+    "count": 50,
+    "bytes": 318825
+  },
+  {
+    "file": "recovery/replay-chunks/017.sql",
+    "first": "20260808190500_reconcile_marketplace_image_trust_contract.sql",
+    "last": "20260814143000_fix_hv_dedup_assign_search_path.sql",
+    "count": 32,
+    "bytes": 281963
+  },
+  {
+    "file": "recovery/replay-chunks/018.sql",
+    "first": "20260814143500_clinical_evidence_v1_production_foundation.sql",
+    "last": "20260818160000_clinical_sku_product_level_bootstrap.sql",
+    "count": 26,
+    "bytes": 303860
+  },
+  {
+    "file": "recovery/replay-chunks/019.sql",
+    "first": "20260818192000_clinical_graded_evidence_interactions_depth.sql",
+    "last": "20260822130009_fix_clinical_cross_border_match_kind.sql",
+    "count": 32,
+    "bytes": 305957
+  },
+  {
+    "file": "recovery/replay-chunks/020.sql",
+    "first": "20260822134500_live_regulatory_heatmap_all_jurisdictions.sql",
+    "last": "20260902021818_fix_search_path_quoting_regression.sql",
+    "count": 51,
+    "bytes": 319309
+  },
+  {
+    "file": "recovery/replay-chunks/021.sql",
+    "first": "20260902220000_tighten_regulatory_signals_grants_to_intended_scope.sql",
+    "last": "20260919160000_marketplace_inquiry_commercial_outcome.sql",
+    "count": 66,
+    "bytes": 317307
+  },
+  {
+    "file": "recovery/replay-chunks/022.sql",
+    "first": "20260919190000_optimize_talent_candidate_rls_and_function_search_path.sql",
+    "last": "20260923033000_evidence_snapshot_gate_002.sql",
+    "count": 68,
+    "bytes": 308523
+  },
+  {
+    "file": "recovery/replay-chunks/023.sql",
+    "first": "20260923034000_evidence_architecture_hardening_003.sql",
+    "last": "20260923150000_primary_evidence_batch_pe_uy.sql",
+    "count": 48,
+    "bytes": 311761
+  },
+  {
+    "file": "recovery/replay-chunks/024.sql",
+    "first": "20260923153000_primary_evidence_batch_cl_ec.sql",
+    "last": "20260925210000_publish_heatmap_national_tranche2.sql",
+    "count": 41,
+    "bytes": 302547
+  },
+  {
+    "file": "recovery/replay-chunks/025.sql",
+    "first": "20260925220000_rehydrate_heatmap_us_ca_au_de.sql",
+    "last": "20260929084500_expand_client_error_boundaries.sql",
+    "count": 4,
+    "bytes": 40738
+  }
+]
