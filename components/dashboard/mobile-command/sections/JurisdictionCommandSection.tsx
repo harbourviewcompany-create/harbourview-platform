@@ -632,7 +632,8 @@ export function JurisdictionSection(props: Props) {
                         {item.economics.importContext.canadianKg != null && item.economics.importContext.totalKg > 0 ? (
                           <span>Canada share {Math.round((item.economics.importContext.canadianKg / item.economics.importContext.totalKg) * 100)}%</span>
                         ) : null}
-                        <span>{item.economics.importContext.sourceLabel}</span>
+                        <span>{item.economics.importContext.sourceLabel} · updated {item.economics.importContext.sourceUpdatedAt}</span>
+                        <span>{humanizeJurisdictionStatus(item.economics.importContext.confidence)} confidence</span>
                       </div>
                     ) : null}
                   </>
