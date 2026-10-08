@@ -27,7 +27,7 @@ on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
-select c.id,'JM','depth-v1-jm-medical-therapeutic','Licensed medical and therapeutic cannabis handling and retail','licensed_market',
+select c.id,'JM','depth-v1-jm-medical-therapeutic','Licensed medical and therapeutic cannabis handling and retail','medical_access_program',
 'Dangerous Drugs Act as amended in 2015; Dangerous Drugs (Cannabis Licensing) (Interim) Regulations 2016',
 'Cannabis Licensing Authority (CLA)','active','2016-01-01',
 'Jamaica licenses handling of hemp and ganja for medical, therapeutic or scientific purposes. CLA guidance confirms licensed Retail Herb Houses may sell ganja for medical or therapeutic purposes under the interim regulations, with online ordering permitted subject to exchange/barter on the licensed premises. This is not an unrestricted adult-use retail pathway.',
