@@ -1,0 +1,75 @@
+name: Recovery Supabase Replay Bundle
+
+on:
+  push:
+    branches:
+      - recovery/supabase-rebuild-20261008
+    paths:
+      - .github/workflows/recovery-supabase-replay-bundle.yml
+      - supabase/migrations/**
+      - supabase/release-controls/**
+      - scripts/prepare-production-faithful-migration-replay.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  build-replay-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare production-faithful replay
+        run: node scripts/prepare-production-faithful-migration-replay.mjs --apply
+
+      - name: Build replay manifest
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path("supabase/migrations")
+          rows = []
+          for p in sorted(root.glob("*.sql")):
+              b = p.read_bytes()
+              rows.append({
+                  "file": p.name,
+                  "size": len(b),
+                  "sha256": hashlib.sha256(b).hexdigest(),
+              })
+          pathlib.Path("recovery-replay-manifest.json").write_text(
+              json.dumps({"count": len(rows), "files": rows}, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"Prepared {len(rows)} SQL migrations")
+          PY
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Validate full zero-state replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -At -F $'\t' -c "select version, coalesce(name,'') from supabase_migrations.schema_migrations order by version" > recovery-ledger.tsv
+          psql "$DB_URL" -At -c "select count(*) from supabase_migrations.schema_migrations" > recovery-ledger-count.txt
+
+      - name: Upload prepared replay bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-recovery-replay-${{ github.run_id }}
+          path: |
+            supabase/migrations/*.sql
+            recovery-replay-manifest.json
+            recovery-ledger.tsv
+            recovery-ledger-count.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
