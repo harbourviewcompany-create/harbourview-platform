@@ -481,6 +481,8 @@ export async function GET(req: NextRequest) {
               canadianKg: economics.importContext.canadianKg ?? null,
               period: economics.importContext.period,
               sourceLabel: economics.importContext.sourceLabel,
+              sourceUpdatedAt: economics.importContext.sourceUpdatedAt,
+              confidence: economics.importContext.confidence,
             } : null,
           } : null,
         }
