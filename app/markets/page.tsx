@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { MarketEconomicsSnapshot } from '@/components/markets/MarketEconomicsSnapshot'
 import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
@@ -112,6 +113,8 @@ export default async function MarketsPage() {
             </div>
           )}
         </header>
+
+        <MarketEconomicsSnapshot />
 
         {/* Market grid */}
         <div className="mkt-grid">
