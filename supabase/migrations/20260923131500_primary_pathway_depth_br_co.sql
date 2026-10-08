@@ -25,7 +25,7 @@ from public.countries c where c.iso_alpha2='CO'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,verification='verified',last_verified_at=now();
 
 insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
-select 'pathway',p.id,'RDC 1.013/2026','Cannabis cultivation requirements','regulation',
+select 'pathway',p.id,'RDC 1.013/2026','Cannabis cultivation requirements','regulator',
 'https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/controlados/rdcs-no-1-012-2026-e-no-1-013-2026',
 '2026-02-03',current_date,
 'ANVISA states RDC 1.013/2026 establishes requirements for cultivation of Cannabis sativa L. varieties with THC at or below 0.3% exclusively for medicinal, pharmaceutical or research purposes, with cultivation beginning only after ANVISA Special Authorization.'
