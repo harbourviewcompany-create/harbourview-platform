@@ -53,7 +53,7 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       sourceLabel: 'Grammpreis',
       sourceType: 'market-tracker',
     },
-    note: 'German wholesale flower has broken below the €2/g line in current market analysis; declared Canadian export values are a directional upstream benchmark, not a like-for-like distributor contract.',
+    note: 'Declared Canadian export values are a directional upstream benchmark, not a like-for-like distributor contract.',
   },
   {
     iso2: 'AU',
@@ -76,7 +76,7 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       sourceUpdatedAt: '2026-08-19',
       confidence: 'high',
     },
-    note: 'Australia is a high-volume but aggressively price-compressed market; 2025 imported stock and domestic production both remained substantial.',
+    note: 'The 2025 ODC import total and Canadian-origin volume are physical-volume context and should not be read as a distributor purchase price.',
   },
   {
     iso2: 'MT',
@@ -91,7 +91,7 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
       sourceType: 'trade-data-analysis',
     },
-    note: 'Malta is primarily useful as a regulated processing/import node; upstream pricing should not be treated as Maltese patient sell-through.',
+    note: 'The declared Canadian export value is an upstream trade benchmark and should not be treated as Maltese patient sell-through.',
   },
   {
     iso2: 'PT',
@@ -106,7 +106,7 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
       sourceType: 'trade-data-analysis',
     },
-    note: 'Portugal functions heavily as a processing and re-export hub, so import value is not a direct proxy for domestic patient demand.',
+    note: 'The declared Canadian export value is an upstream trade benchmark and is not a direct proxy for Portuguese patient demand.',
   },
   {
     iso2: 'CZ',
@@ -121,7 +121,7 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       sourceLabel: 'Statistics Canada trade data via Cannamonitor',
       sourceType: 'trade-data-analysis',
     },
-    note: 'Czechia has a private-distributor import model and is also used as a European processing/export route.',
+    note: 'The declared Canadian export value is a directional trade benchmark; private importer and distributor contract terms are not public in this dataset.',
   },
   {
     iso2: 'PL',
