@@ -77,6 +77,9 @@ describe('Jurisdiction Command production contracts', () => {
   })
   it('projects reviewed economics into the live authenticated comparison without raw provenance URLs', () => {
     expect(routeSource).toContain('getMarketEconomics(item.iso2)')
+    expect(sectionSource).toContain('getMarketEconomics(canonicalContext.country)')
+    expect(sectionSource).toContain('Reviewed upstream price signal')
+    expect(sectionSource).toContain('Reviewed downstream comparator')
     expect(routeSource).toContain('displayValue: formatMarketPrice(economics.upstreamPrice)')
     expect(routeSource).toContain('sourceLabel: economics.upstreamPrice.sourceLabel')
     expect(sectionSource).toContain('Upstream price')
