@@ -443,7 +443,7 @@ export function JurisdictionSection(props: Props) {
                   </div>
                   <p>{reviewedEconomics.upstreamPrice.basis}</p>
                   <div className={styles.smallMeta}>
-                    <span>{isMarketPriceStale(reviewedEconomics.upstreamPrice) ? 'Refresh due' : `As of ${reviewedEconomics.upstreamPrice.asOf}`}</span>
+                    <span>{isMarketPriceStale(reviewedEconomics.upstreamPrice) ? `Refresh due · ${reviewedEconomics.upstreamPrice.asOf}` : `As of ${reviewedEconomics.upstreamPrice.asOf}`}</span>
                     <span>{reviewedEconomics.upstreamPrice.sourceLabel}</span>
                   </div>
                 </article>
@@ -456,7 +456,7 @@ export function JurisdictionSection(props: Props) {
                   </div>
                   <p>{reviewedEconomics.downstreamPrice.basis}</p>
                   <div className={styles.smallMeta}>
-                    <span>{isMarketPriceStale(reviewedEconomics.downstreamPrice) ? 'Refresh due' : `As of ${reviewedEconomics.downstreamPrice.asOf}`}</span>
+                    <span>{isMarketPriceStale(reviewedEconomics.downstreamPrice) ? `Refresh due · ${reviewedEconomics.downstreamPrice.asOf}` : `As of ${reviewedEconomics.downstreamPrice.asOf}`}</span>
                     <span>{reviewedEconomics.downstreamPrice.sourceLabel}</span>
                   </div>
                 </article>
