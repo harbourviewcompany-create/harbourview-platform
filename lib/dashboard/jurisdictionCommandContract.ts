@@ -156,6 +156,8 @@ export type JurisdictionComparisonEconomicsDTO = {
     canadianKg: number | null
     period: string
     sourceLabel: string
+    sourceUpdatedAt: string
+    confidence: 'high' | 'medium' | 'low'
   } | null
 }
 
