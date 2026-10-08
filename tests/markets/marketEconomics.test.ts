@@ -18,7 +18,7 @@ describe('market economics reviewed snapshot', () => {
 
       for (const metric of metrics) {
         expect(metric?.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-        expect(metric?.sourceUrl.startsWith('https://')).toBe(true)
+        expect(metric?.sourceLabel?.trim().length).toBeGreaterThan(0)
         expect(['high', 'medium', 'low']).toContain(metric?.confidence)
       }
     }
@@ -36,7 +36,11 @@ describe('market economics reviewed snapshot', () => {
     const australia = getMarketEconomics('AU')
     expect(australia?.importContext?.totalKg).toBe(81119)
     expect(australia?.importContext?.canadianKg).toBe(49107)
-    expect(australia?.importContext?.sourceUrl).toContain('odc.gov.au')
+    expect(australia?.importContext?.sourceLabel).toBe('Australian Office of Drug Control')
+  })
+
+  it('does not expose raw source URLs in client-visible snapshots', () => {
+    expect(JSON.stringify(MARKET_ECONOMICS)).not.toContain('https://')
   })
 
   it('formats price units without converting currencies', () => {
