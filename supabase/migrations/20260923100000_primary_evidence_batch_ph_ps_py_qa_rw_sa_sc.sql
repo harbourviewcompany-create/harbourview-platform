@@ -27,6 +27,14 @@ on conflict (source_url) do update set
   notes=excluded.notes,
   updated_at=now();
 
+-- Recovery replay: release the one-active-direct market-access slot before
+-- installing the newer authoritative evidence rows. Historical evidence is retained.
+update public.regulatory_market_access_evidence
+set active=false
+where jurisdiction_iso2 in ('PH','PS','PY','QA','RW','SA','SC')
+  and active=true
+  and parent_iso2 is null;
+
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
 values
