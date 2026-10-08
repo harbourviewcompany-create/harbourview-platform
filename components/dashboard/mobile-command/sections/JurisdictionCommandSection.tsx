@@ -553,8 +553,8 @@ export function JurisdictionSection(props: Props) {
                 {item.economics ? (
                   <>
                     <div className={styles.smallMeta}>
-                      {item.economics.upstreamPrice ? <span>Upstream price {item.economics.upstreamPrice.displayValue} · {item.economics.upstreamPrice.asOf}</span> : null}
-                      {item.economics.downstreamPrice ? <span>Downstream comparator {item.economics.downstreamPrice.displayValue} · {item.economics.downstreamPrice.asOf}</span> : null}
+                      {item.economics.upstreamPrice ? <span>Upstream price {item.economics.upstreamPrice.displayValue} · {item.economics.upstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.upstreamPrice.asOf}</span> : null}
+                      {item.economics.downstreamPrice ? <span>Downstream comparator {item.economics.downstreamPrice.displayValue} · {item.economics.downstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.downstreamPrice.asOf}</span> : null}
                     </div>
                     {item.economics.importContext ? (
                       <div className={styles.smallMeta}>
