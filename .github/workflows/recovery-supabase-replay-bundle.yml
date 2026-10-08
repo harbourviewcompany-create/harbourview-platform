@@ -84,6 +84,10 @@ jobs:
               ("values('8ff64be8-1f33-42b5-9ba7-7cdd13c6fe6a','KE','depth-v1-ke'",
                "values((select id from public.countries where iso_alpha2='KE'),'KE','depth-v1-ke'"),
             ],
+            "20260922165000_primary_netherlands_format_rules.sql": [
+              ("'01fdfa6a-1295-4f84-8ade-dbabf9b245be'",
+               "(select id from public.regulatory_pathways where slug='nl-experiment')"),
+            ],
             "20260923061000_primary_lv_law_2026_enrichment.sql": [
               ("select 'a4e3067f-de8f-40a8-9633-24271c893c51','LV','depth-v1-lv-industrial-hemp'",
                "select (select id from public.countries where iso_alpha2='LV'),'LV','depth-v1-lv-industrial-hemp'"),
