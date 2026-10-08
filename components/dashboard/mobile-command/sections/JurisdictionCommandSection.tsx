@@ -550,6 +550,22 @@ export function JurisdictionSection(props: Props) {
                   <span className={styles.status} data-state={normalizeJurisdictionAccessState(item.marketAccessStatus)}>{item.marketAccessStatus ? humanizeJurisdictionStatus(item.marketAccessStatus) : 'Under review'}</span>
                 </div>
                 <div className={styles.smallMeta}><span>Opportunity score {item.opportunityScore}</span><span>{item.dataCompleteness ? `Coverage ${humanizeJurisdictionStatus(item.dataCompleteness)}` : 'Coverage under review'}</span></div>
+                {item.economics ? (
+                  <>
+                    <div className={styles.smallMeta}>
+                      {item.economics.upstreamPrice ? <span>Upstream price {item.economics.upstreamPrice.displayValue} · {item.economics.upstreamPrice.asOf}</span> : null}
+                      {item.economics.downstreamPrice ? <span>Downstream comparator {item.economics.downstreamPrice.displayValue} · {item.economics.downstreamPrice.asOf}</span> : null}
+                    </div>
+                    {item.economics.importContext ? (
+                      <div className={styles.smallMeta}>
+                        <span>Imports {item.economics.importContext.totalKg.toLocaleString()} kg · {item.economics.importContext.period}</span>
+                        {item.economics.importContext.canadianKg != null && item.economics.importContext.totalKg > 0 ? (
+                          <span>Canada share {Math.round((item.economics.importContext.canadianKg / item.economics.importContext.totalKg) * 100)}%</span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
               </article>
             ))}
           </div>
