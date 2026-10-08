@@ -33,7 +33,6 @@ jobs:
           out.mkdir(parents=True, exist_ok=True)
 
           files = sorted(p for p in root.glob("*.sql"))
-          # The first canonical migration is already applied to the replacement project.
           files = [p for p in files if not p.name.startswith("20260301000000_")]
 
           target = 320_000
@@ -53,23 +52,18 @@ jobs:
                   "on conflict (version) do update set name=excluded.name;\n"
               )
 
-          def flush():
-              nonlocal current, current_bytes
-              if not current:
-                  return
+          def write_chunk(items):
               idx = len(chunks) + 1
               path = out / f"{idx:03d}.sql"
-              text = "".join(x["sql"] for x in current)
+              text = "".join(x["sql"] for x in items)
               path.write_text(text, encoding="utf-8")
               chunks.append({
                   "file": str(path),
-                  "first": current[0]["name"],
-                  "last": current[-1]["name"],
-                  "count": len(current),
+                  "first": items[0]["name"],
+                  "last": items[-1]["name"],
+                  "count": len(items),
                   "bytes": len(text.encode("utf-8")),
               })
-              current = []
-              current_bytes = 0
 
           for path in files:
               body = path.read_text(encoding="utf-8")
@@ -84,10 +78,15 @@ jobs:
               )
               b = len(block.encode("utf-8"))
               if current and current_bytes + b > target:
-                  flush()
+                  write_chunk(current)
+                  current = []
+                  current_bytes = 0
               current.append({"name": path.name, "sql": block})
               current_bytes += b
-          flush()
+
+          if current:
+              write_chunk(current)
+
           (out / "manifest.json").write_text(json.dumps(chunks, indent=2) + "\n", encoding="utf-8")
           print(f"built {len(chunks)} chunks for {sum(c['count'] for c in chunks)} migrations")
           PY
