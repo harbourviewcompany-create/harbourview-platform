@@ -145,6 +145,7 @@ export type JurisdictionComparisonEconomicsPriceDTO = {
   asOf: string
   confidence: 'high' | 'medium' | 'low'
   sourceLabel: string
+  stale: boolean
 }
 
 export type JurisdictionComparisonEconomicsDTO = {
