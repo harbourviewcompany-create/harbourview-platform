@@ -37,9 +37,15 @@ export function MarketEconomicsSnapshot() {
           </thead>
           <tbody>
             {MARKET_ECONOMICS.map((market) => {
-              const primary = market.upstreamPrice ?? market.downstreamPrice
-              const stale = primary ? isMarketPriceStale(primary) : true
-              const source = market.upstreamPrice ?? market.downstreamPrice
+              const priceMetrics = [
+                ['Upstream', market.upstreamPrice] as const,
+                ['Downstream', market.downstreamPrice] as const,
+              ].filter((entry): entry is readonly [string, NonNullable<typeof entry[1]>] => Boolean(entry[1]))
+              const sourceLabels = [
+                market.upstreamPrice ? ['Upstream', market.upstreamPrice.sourceLabel] as const : null,
+                market.downstreamPrice ? ['Downstream', market.downstreamPrice.sourceLabel] as const : null,
+                market.importContext ? ['Import', market.importContext.sourceLabel] as const : null,
+              ].filter((entry): entry is readonly [string, string] => Boolean(entry))
               return (
                 <tr key={market.iso2} style={{ borderTop: '1px solid rgba(255,255,255,.055)' }}>
                   <td style={{ padding: '13px', verticalAlign: 'top' }}>
@@ -63,15 +69,23 @@ export function MarketEconomicsSnapshot() {
                     ) : '—'}
                   </td>
                   <td style={{ padding: '13px', verticalAlign: 'top', fontSize: 10 }}>
-                    {primary ? (
-                      <>
-                        <div style={{ color: stale ? '#d4a84b' : '#4caf82' }}>{stale ? 'Refresh due' : `As of ${primary.asOf}`}</div>
-                        <div style={{ marginTop: 5, color: 'rgba(245,240,232,.35)' }}>{confidenceLabel(primary.confidence)}</div>
-                      </>
-                    ) : '—'}
+                    {priceMetrics.length ? priceMetrics.map(([label, metric]) => {
+                      const stale = isMarketPriceStale(metric)
+                      return (
+                        <div key={label} style={{ marginBottom: 6 }}>
+                          <span style={{ color: 'rgba(245,240,232,.35)' }}>{label}: </span>
+                          <span style={{ color: stale ? '#d4a84b' : '#4caf82' }}>{stale ? `Refresh due · ${metric.asOf}` : metric.asOf}</span>
+                          <div style={{ marginTop: 2, color: 'rgba(245,240,232,.35)' }}>{confidenceLabel(metric.confidence)}</div>
+                        </div>
+                      )
+                    }) : '—'}
                   </td>
                   <td style={{ padding: '13px', verticalAlign: 'top', fontSize: 10 }}>
-                    {source ? <span style={{ color: 'rgba(245,240,232,.62)' }}>{source.sourceLabel}</span> : '—'}
+                    {sourceLabels.length ? sourceLabels.map(([label, sourceLabel]) => (
+                      <div key={label} style={{ marginBottom: 5, color: 'rgba(245,240,232,.62)' }}>
+                        <span style={{ color: 'rgba(245,240,232,.34)' }}>{label}: </span>{sourceLabel}
+                      </div>
+                    )) : '—'}
                     {market.note ? <div style={{ marginTop: 6, maxWidth: 280, lineHeight: 1.45, color: 'rgba(245,240,232,.34)' }}>{market.note}</div> : null}
                   </td>
                 </tr>
