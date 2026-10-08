@@ -66,19 +66,51 @@ jobs:
             active=true;
           SQL
 
-      - name: Replace production-local TV country UUID for zero-state replay
+      - name: Replace production-local country UUIDs for zero-state replay
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("supabase/migrations/20260922120000_primary_tv_va_source_enrichment.sql")
-          s = p.read_text()
-          old = "values('39d4e117-d0ae-4669-8f0c-b631afee0ef1','TV','depth-v1-tv'"
-          new = "values((select id from public.countries where iso_alpha2='TV'),'TV','depth-v1-tv'"
-          if s.count(old) != 1:
-              raise SystemExit("TV production UUID replay anchor mismatch")
-          p.write_text(s.replace(old, new))
+
+          patches = {
+            "20260922120000_primary_tv_va_source_enrichment.sql": [
+              ("values('39d4e117-d0ae-4669-8f0c-b631afee0ef1','TV','depth-v1-tv'",
+               "values((select id from public.countries where iso_alpha2='TV'),'TV','depth-v1-tv'"),
+            ],
+            "20260922121000_primary_ca_ke_regulatory_enrichment.sql": [
+              ("values('a2c3726a-12a5-40c6-a640-65a735c579ac','CA','depth-v1-ca'",
+               "values((select id from public.countries where iso_alpha2='CA'),'CA','depth-v1-ca'"),
+              ("values('8ff64be8-1f33-42b5-9ba7-7cdd13c6fe6a','KE','depth-v1-ke'",
+               "values((select id from public.countries where iso_alpha2='KE'),'KE','depth-v1-ke'"),
+            ],
+            "20260923061000_primary_lv_law_2026_enrichment.sql": [
+              ("select 'a4e3067f-de8f-40a8-9633-24271c893c51','LV','depth-v1-lv-industrial-hemp'",
+               "select (select id from public.countries where iso_alpha2='LV'),'LV','depth-v1-lv-industrial-hemp'"),
+            ],
+            "20260923072000_primary_mc_cannabis_control_enrichment.sql": [
+              ("select '1a237176-7a4f-43ba-9d94-ea63b9ad3382','MC','depth-v1-mc-authorized-non-narcotic-cannabis'",
+               "select (select id from public.countries where iso_alpha2='MC'),'MC','depth-v1-mc-authorized-non-narcotic-cannabis'"),
+            ],
+            "20260925081500_primary_vu_hemp_medical_enrichment.sql": [
+              ("select '58526c26-b97d-410d-aa39-3e1a3b6e66b0','VU','depth-v1-vu-medical-hemp'",
+               "select (select id from public.countries where iso_alpha2='VU'),'VU','depth-v1-vu-medical-hemp'"),
+            ],
+            "20260925090000_primary_ml_law83_14_enrichment.sql": [
+              ("select 'ee9ec5dd-845e-41ae-b088-98a84f667a74','ML','depth-v1-ml-authorized-research'",
+               "select (select id from public.countries where iso_alpha2='ML'),'ML','depth-v1-ml-authorized-research'"),
+            ],
+          }
+
+          root = Path("supabase/migrations")
+          for filename, replacements in patches.items():
+              p = root / filename
+              s = p.read_text()
+              for old, new in replacements:
+                  if s.count(old) != 1:
+                      raise SystemExit(f"zero-state replay anchor mismatch in {filename}: {old}")
+                  s = s.replace(old, new)
+              p.write_text(s)
           PY
 
       - name: Build replay manifest
