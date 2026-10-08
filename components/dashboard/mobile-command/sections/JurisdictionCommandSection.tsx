@@ -470,7 +470,8 @@ export function JurisdictionSection(props: Props) {
                   <div className={styles.smallMeta}>
                     <span>{reviewedEconomics.importContext.period}</span>
                     {reviewedEconomics.importContext.canadianKg != null && reviewedEconomics.importContext.totalKg > 0 ? <span>Canada share {Math.round((reviewedEconomics.importContext.canadianKg / reviewedEconomics.importContext.totalKg) * 100)}%</span> : null}
-                    <span>{reviewedEconomics.importContext.sourceLabel}</span>
+                    <span>{reviewedEconomics.importContext.sourceLabel} · updated {reviewedEconomics.importContext.sourceUpdatedAt}</span>
+                    <span>{humanizeJurisdictionStatus(reviewedEconomics.importContext.confidence)} confidence</span>
                   </div>
                 </article>
               ) : null}
