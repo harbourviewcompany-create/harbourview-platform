@@ -38,14 +38,14 @@ export function MarketEconomicsSnapshot() {
           <tbody>
             {MARKET_ECONOMICS.map((market) => {
               const priceMetrics = [
-                ['Upstream', market.upstreamPrice] as const,
-                ['Downstream', market.downstreamPrice] as const,
-              ].filter((entry): entry is readonly [string, NonNullable<typeof entry[1]>] => Boolean(entry[1]))
+                ...(market.upstreamPrice ? [{ label: 'Upstream', metric: market.upstreamPrice }] : []),
+                ...(market.downstreamPrice ? [{ label: 'Downstream', metric: market.downstreamPrice }] : []),
+              ]
               const sourceLabels = [
-                market.upstreamPrice ? ['Upstream', market.upstreamPrice.sourceLabel] as const : null,
-                market.downstreamPrice ? ['Downstream', market.downstreamPrice.sourceLabel] as const : null,
-                market.importContext ? ['Import', market.importContext.sourceLabel] as const : null,
-              ].filter((entry): entry is readonly [string, string] => Boolean(entry))
+                ...(market.upstreamPrice ? [{ label: 'Upstream', sourceLabel: market.upstreamPrice.sourceLabel }] : []),
+                ...(market.downstreamPrice ? [{ label: 'Downstream', sourceLabel: market.downstreamPrice.sourceLabel }] : []),
+                ...(market.importContext ? [{ label: 'Import', sourceLabel: market.importContext.sourceLabel }] : []),
+              ]
               return (
                 <tr key={market.iso2} style={{ borderTop: '1px solid rgba(255,255,255,.055)' }}>
                   <td style={{ padding: '13px', verticalAlign: 'top' }}>
@@ -69,7 +69,7 @@ export function MarketEconomicsSnapshot() {
                     ) : '—'}
                   </td>
                   <td style={{ padding: '13px', verticalAlign: 'top', fontSize: 10 }}>
-                    {priceMetrics.length ? priceMetrics.map(([label, metric]) => {
+                    {priceMetrics.length ? priceMetrics.map(({ label, metric }) => {
                       const stale = isMarketPriceStale(metric)
                       return (
                         <div key={label} style={{ marginBottom: 6 }}>
@@ -81,7 +81,7 @@ export function MarketEconomicsSnapshot() {
                     }) : '—'}
                   </td>
                   <td style={{ padding: '13px', verticalAlign: 'top', fontSize: 10 }}>
-                    {sourceLabels.length ? sourceLabels.map(([label, sourceLabel]) => (
+                    {sourceLabels.length ? sourceLabels.map(({ label, sourceLabel }) => (
                       <div key={label} style={{ marginBottom: 5, color: 'rgba(245,240,232,.62)' }}>
                         <span style={{ color: 'rgba(245,240,232,.34)' }}>{label}: </span>{sourceLabel}
                       </div>
