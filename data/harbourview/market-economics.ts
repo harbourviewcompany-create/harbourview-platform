@@ -16,6 +16,8 @@ export type MarketImportContext = {
   canadianKg?: number
   period: string
   sourceLabel: string
+  sourceUpdatedAt: string
+  confidence: MarketPriceConfidence
 }
 
 export type MarketEconomicsSnapshot = {
@@ -71,6 +73,8 @@ export const MARKET_ECONOMICS: readonly MarketEconomicsSnapshot[] = [
       canadianKg: 49107,
       period: '2025',
       sourceLabel: 'Australian Office of Drug Control',
+      sourceUpdatedAt: '2026-08-19',
+      confidence: 'high',
     },
     note: 'Australia is a high-volume but aggressively price-compressed market; 2025 imported stock and domestic production both remained substantial.',
   },
