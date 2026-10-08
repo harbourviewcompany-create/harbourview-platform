@@ -1,9 +1,9 @@
 name: Build Harbourview Recovery Replay Chunks
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - recovery/harbourview-supabase-replay-20261008
 
 permissions:
   contents: write
