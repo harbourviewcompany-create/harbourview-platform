@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { resolveActiveWorkspace } from '@/lib/hv/active-workspace'
-import { formatMarketPrice, getMarketEconomics } from '@/data/harbourview/market-economics'
+import { formatMarketPrice, getMarketEconomics, isMarketPriceStale } from '@/data/harbourview/market-economics'
 import {
   getCannabisOperators,
   getComparisonCountryScores,
@@ -466,6 +466,7 @@ export async function GET(req: NextRequest) {
               asOf: economics.upstreamPrice.asOf,
               confidence: economics.upstreamPrice.confidence,
               sourceLabel: economics.upstreamPrice.sourceLabel,
+              stale: isMarketPriceStale(economics.upstreamPrice),
             } : null,
             downstreamPrice: economics.downstreamPrice ? {
               displayValue: formatMarketPrice(economics.downstreamPrice),
@@ -473,6 +474,7 @@ export async function GET(req: NextRequest) {
               asOf: economics.downstreamPrice.asOf,
               confidence: economics.downstreamPrice.confidence,
               sourceLabel: economics.downstreamPrice.sourceLabel,
+              stale: isMarketPriceStale(economics.downstreamPrice),
             } : null,
             importContext: economics.importContext ? {
               totalKg: economics.importContext.totalKg,
