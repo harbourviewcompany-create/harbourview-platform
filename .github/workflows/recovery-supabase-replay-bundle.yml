@@ -29,6 +29,14 @@ jobs:
           set -euo pipefail
           cp             supabase/release-controls/recovered-migration-sources/20260922101715_jurisdiction_data_depth_subnational_source_alignment_v2.sql             supabase/migrations/20260922101715_replay_jurisdiction_data_depth_subnational_source_alignment_v2.sql
 
+      - name: Restore FO/GL evidence prerequisite before dependent depth migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp \
+            supabase/migrations/20260926032000_repair_fo_gl_regulatory_evidence_fk.sql \
+            supabase/migrations/20260922111959_replay_repair_fo_gl_regulatory_evidence_fk.sql
+
       - name: Build replay manifest
         shell: bash
         run: |
