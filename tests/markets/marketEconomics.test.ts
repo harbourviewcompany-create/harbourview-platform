@@ -37,6 +37,8 @@ describe('market economics reviewed snapshot', () => {
     expect(australia?.importContext?.totalKg).toBe(81119)
     expect(australia?.importContext?.canadianKg).toBe(49107)
     expect(australia?.importContext?.sourceLabel).toBe('Australian Office of Drug Control')
+    expect(australia?.importContext?.sourceUpdatedAt).toBe('2026-08-19')
+    expect(australia?.importContext?.confidence).toBe('high')
   })
 
   it('pins the latest reviewed downstream comparator snapshots', () => {
