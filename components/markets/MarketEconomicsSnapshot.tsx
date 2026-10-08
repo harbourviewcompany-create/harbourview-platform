@@ -71,7 +71,7 @@ export function MarketEconomicsSnapshot() {
                     ) : '—'}
                   </td>
                   <td style={{ padding: '13px', verticalAlign: 'top', fontSize: 10 }}>
-                    {source ? <a href={source.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#d4a84b', textDecoration: 'none' }}>{source.sourceLabel} ↗</a> : '—'}
+                    {source ? <span style={{ color: 'rgba(245,240,232,.62)' }}>{source.sourceLabel}</span> : '—'}
                     {market.note ? <div style={{ marginTop: 6, maxWidth: 280, lineHeight: 1.45, color: 'rgba(245,240,232,.34)' }}>{market.note}</div> : null}
                   </td>
                 </tr>
