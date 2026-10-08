@@ -23,6 +23,12 @@ jobs:
       - name: Prepare production-faithful replay
         run: node scripts/prepare-production-faithful-migration-replay.mjs --apply
 
+      - name: Restore recovered production-only depth migration for clean replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp             supabase/release-controls/recovered-migration-sources/20260922101715_jurisdiction_data_depth_subnational_source_alignment_v2.sql             supabase/migrations/20260922101715_replay_jurisdiction_data_depth_subnational_source_alignment_v2.sql
+
       - name: Build replay manifest
         shell: bash
         run: |
