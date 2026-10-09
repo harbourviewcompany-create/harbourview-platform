@@ -58,7 +58,7 @@ async function fetchOne(source: any) {
       snapshot_hash: hash,
       fetched_at: capturedAt,
       http_status: response.status,
-      raw_payload: body.replace(/\\u0000/g, " "),
+      raw_payload: null,
       captured_url: source.source_url,
       captured_title: source.source_name,
       captured_text: text,
