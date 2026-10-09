@@ -442,6 +442,7 @@ Deno.serve(async (req: Request) => {
   const { data: queueRows, error: qErr } = await supabase
     .from("countries")
     .select("country_name, iso_alpha2")
+    .eq("jurisdiction_level", "national")
     .order("country_name", { ascending: true });
   if (qErr) {
     await supabase.from("source_discovery_jobs").update({ finished_at: new Date().toISOString(), status: "error", errors: JSON.stringify([qErr.message]) }).eq("id", jobId);
