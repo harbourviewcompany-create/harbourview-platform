@@ -2,7 +2,7 @@
 -- must exist before the FK-backed claim inserts execute.
 insert into public.regulatory_market_access_evidence(
   evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,
-  source_effective_date,retrieved_at,verified_at,expires_at,evidence_status,active
+  source_effective_date,retrieved_at,verified_at,expires_at,active
 )
 values
 (
@@ -10,20 +10,20 @@ values
  'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; authorized activity is within the medical/scientific framework and no general adult-use retail pathway is established by the cited instrument.',
  'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
  'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer',
- '2026-05-26',now(),now(),now()+interval '1 year','verified',true
+ '2026-05-26',now(),now(),now()+interval '1 year',true
 ),
 (
  'hv-mkt-complete-gl-20260913','GL','medical_limited_trade',
  'Greenland controlled-substance law places cannabis within an authorization-based medical/scientific framework; no general adult-use commercial retail pathway is established by the cited framework.',
  'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
  'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',
- null,now(),now(),now()+interval '1 year','verified',true
+ null,now(),now(),now()+interval '1 year',true
 )
 on conflict (evidence_key) do update set
  tier=excluded.tier,rationale=excluded.rationale,authority_name=excluded.authority_name,
  authority_url=excluded.authority_url,source_effective_date=excluded.source_effective_date,
  retrieved_at=excluded.retrieved_at,verified_at=excluded.verified_at,
- expires_at=excluded.expires_at,evidence_status=excluded.evidence_status,active=true;
+ expires_at=excluded.expires_at,active=true;
 
 insert into public.regulatory_market_access_claims(
  evidence_key,jurisdiction_iso2,claim_key,claim_text,product_class,jurisdiction_scope,
