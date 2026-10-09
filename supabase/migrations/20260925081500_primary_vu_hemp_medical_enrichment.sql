@@ -29,7 +29,7 @@ values (
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
-select '58526c26-b97d-410d-aa39-3e1a3b6e66b0','VU','depth-v1-vu-medical-hemp','Industrial hemp and medical cannabis licensing','domestic_authorization',
+select (select id from public.countries where iso_alpha2='VU'),'VU','depth-v1-vu-medical-hemp','Industrial hemp and medical cannabis licensing','domestic_authorization',
 'Industrial Hemp and Medical Cannabis Act No. 31 of 2021',
 'Vanuatu Ministry of Agriculture, Livestock, Forestry and Biosecurity / statutory advisory framework','active','2021-12-10',
 'Licensed industrial hemp and medical cannabis activities are regulated by statute, including cultivation, seed importation, processing/manufacturing and export. This is not an adult-use retail pathway.',
