@@ -51,10 +51,6 @@ const OPENAI_SEARCH_MODEL = "gpt-4o-mini-search-preview";
 const CLASSES = [
   "health_authority",
   "drug_control_authority",
-  "official_gazette",
-  "legislature",
-  "customs_import_export",
-  "procurement",
   "medicine_license_registry",
 ] as const;
 
