@@ -412,10 +412,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const supplied = req.headers.get("x-harbourview-operator-secret") ?? "";
+  if (!supplied) return json({ ok: false, error: "unauthorized" }, 401);
+  const authCheck = await supabase.rpc("verify_source_engine_cron_secret", { candidate: supplied });
+  if (authCheck.error || authCheck.data !== true) return json({ ok: false, error: "unauthorized" }, 401);
+
   const body = await req.json().catch(() => ({}));
   const batchSize = Math.min(Math.max(Number(body.batchSize ?? 6), 1), 15);
-
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   const { data: jobRow, error: jobInsertErr } = await supabase
     .from("source_discovery_jobs")
@@ -536,7 +540,24 @@ Deno.serve(async (req: Request) => {
       continue;
     }
     candidatesVerified++;
-    const finalUrl = live.resolvedUrl ?? candidate.url;
+    let finalUrl = live.resolvedUrl ?? candidate.url;
+    if (finalUrl.startsWith("http://")) {
+      const httpsUrl = finalUrl.replace(/^http:\/\//i, "https://");
+      const secure = await verifyLive(httpsUrl);
+      if (!secure.ok) {
+        const errText = `HTTPS upgrade failed for ${finalUrl} (${secure.error})`;
+        errors.push(`${p.country}/${p.cls}: ${errText}`);
+        await recordAttempt(false, errText);
+        continue;
+      }
+      finalUrl = secure.resolvedUrl ?? httpsUrl;
+    }
+    if (!finalUrl.startsWith("https://")) {
+      const errText = `non_https_candidate_rejected: ${finalUrl}`;
+      errors.push(`${p.country}/${p.cls}: ${errText}`);
+      await recordAttempt(false, errText);
+      continue;
+    }
 
     const { error: insErr } = await supabase.from("source_registry").insert({
       source_name: `${p.country} ${candidate.official_body_name || p.cls}`.slice(0, 200),
