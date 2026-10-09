@@ -436,9 +436,9 @@ Deno.serve(async (req: Request) => {
 
   // 1. Load queue countries (excluding non-viable) and existing coverage.
   const { data: queueRows, error: qErr } = await supabase
-    .from("source_expansion_coverage_queue")
-    .select("country, iso")
-    .order("country", { ascending: true });
+    .from("countries")
+    .select("country_name, iso_alpha2")
+    .order("country_name", { ascending: true });
   if (qErr) {
     await supabase.from("source_discovery_jobs").update({ finished_at: new Date().toISOString(), status: "error", errors: JSON.stringify([qErr.message]) }).eq("id", jobId);
     return json({ ok: false, error: "queue_query_failed", detail: qErr.message }, 500);
@@ -480,11 +480,13 @@ Deno.serve(async (req: Request) => {
   // instead of blocking all progress every single run.
   const candidates: { country: string; iso: string; cls: string; lastAttempt: number }[] = [];
   for (const row of queueRows ?? []) {
-    if (!row.iso || NON_VIABLE_ISO.has(row.iso)) continue;
+    const iso = String(row.iso_alpha2 ?? "");
+    const country = String(row.country_name ?? "");
+    if (!iso || !country || NON_VIABLE_ISO.has(iso)) continue;
     for (const cls of CLASSES) {
-      if (existing.has(`${row.iso}|${cls}`)) continue;
-      const key = `${row.iso}|${cls}`;
-      candidates.push({ country: row.country, iso: row.iso, cls, lastAttempt: lastAttempted.get(key) ?? 0 });
+      if (existing.has(`${iso}|${cls}`)) continue;
+      const key = `${iso}|${cls}`;
+      candidates.push({ country, iso, cls, lastAttempt: lastAttempted.get(key) ?? 0 });
     }
   }
   candidates.sort((a, b) => a.lastAttempt - b.lastAttempt); // 0 (never attempted) sorts first
@@ -545,8 +547,19 @@ Deno.serve(async (req: Request) => {
       content_type: ["regulatory"],
       country: p.country,
       iso: p.iso,
+      jurisdiction: p.country,
+      jurisdiction_code: p.iso,
+      source_type: p.cls === "customs_import_export"
+        ? "customs"
+        : (p.cls === "official_gazette" || p.cls === "legislature")
+          ? "statute"
+          : "government_regulator",
       regulator_class: p.cls,
       relevance_status: "active",
+      is_active: true,
+      crawl_allowed: true,
+      network_status: "online",
+      next_crawl_at: new Date().toISOString(),
       notes: `Auto-discovered by source-discovery-engine via ${provider}, verified live (${new Date().toISOString().slice(0, 10)}), model confidence ${candidate.confidence}.`,
     });
     if (insErr) {
@@ -559,13 +572,7 @@ Deno.serve(async (req: Request) => {
     sourcesInserted++;
     await recordAttempt(true);
 
-    await supabase
-      .from("source_expansion_coverage_queue")
-      .update({
-        notes: `2026-08-11+: ${p.cls} auto-discovered and verified live by source-discovery-engine.`,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("iso", p.iso);
+    // Recovery project derives coverage directly from countries + source_registry.
   }
 
   await supabase
