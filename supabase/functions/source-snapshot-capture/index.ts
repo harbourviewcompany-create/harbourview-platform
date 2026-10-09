@@ -53,17 +53,37 @@ async function fetchOne(source: any) {
       .select("raw_html_hash").eq("source_id",source.id).eq("fetch_status","success")
       .order("captured_at",{ascending:false}).limit(1).maybeSingle();
 
-    const { data: snapshot, error } = await supabase.from("source_snapshots").insert({
-      source_id: source.id, captured_url: source.source_url, captured_title: source.source_name,
-      captured_text: text, raw_html_hash: hash, captured_at: capturedAt,
-      fetch_status: response.ok ? "success" : "http_error",
+    let { data: snapshot, error } = await supabase.from("source_snapshots").insert({
+      source_id: source.id,
+      snapshot_hash: hash,
+      fetched_at: capturedAt,
+      http_status: response.status,
+      raw_payload: body,
+      captured_url: source.source_url,
+      captured_title: source.source_name,
+      captured_text: text,
+      raw_html_hash: hash,
+      captured_at: capturedAt,
+      fetch_status: response.ok ? "success" : "failed",
       error_message: response.ok ? null : `HTTP ${response.status}`,
-      language_detected: "unknown", word_count: text ? text.split(/\s+/).length : 0,
-      requires_translation: false, previous_hash: previous?.raw_html_hash ?? null,
+      language_detected: "unknown",
+      word_count: text ? text.split(/\s+/).length : 0,
+      requires_translation: false,
+      previous_hash: previous?.raw_html_hash ?? null,
       changed: previous?.raw_html_hash ? previous.raw_html_hash !== hash : true,
       processing_status: "pending"
     }).select("id,fetch_status,captured_at,raw_html_hash,changed").single();
-    if (error) throw new Error(`snapshot_insert_failed: ${error.message}`);
+    if (error?.code === "23505") {
+      const existing = await supabase.from("source_snapshots")
+        .select("id,fetch_status,captured_at,raw_html_hash,changed")
+        .eq("source_id", source.id)
+        .eq("snapshot_hash", hash)
+        .maybeSingle();
+      if (existing.error) throw new Error(`snapshot_lookup_failed: ${existing.error.message}`);
+      snapshot = existing.data;
+      error = null;
+    }
+    if (error || !snapshot) throw new Error(`snapshot_insert_failed: ${error?.message ?? "snapshot_missing"}`);
 
     const backoffHours = response.ok ? 24 : response.status === 404 ? 168 : 6;
     await supabase.from("source_registry").update({
@@ -78,9 +98,19 @@ async function fetchOne(source: any) {
     return {source_id:source.id,ok:response.ok,status:response.status,snapshot_id:snapshot.id};
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    const errorHash = await sha256(`${source.source_url}|${capturedAt}|${message}`);
     await supabase.from("source_snapshots").insert({
-      source_id:source.id,captured_url:source.source_url,captured_title:source.source_name,
-      captured_at:capturedAt,fetch_status:"error",error_message:message,processing_status:"pending"
+      source_id:source.id,
+      snapshot_hash:errorHash,
+      fetched_at:capturedAt,
+      http_status:null,
+      raw_payload:null,
+      captured_url:source.source_url,
+      captured_title:source.source_name,
+      captured_at:capturedAt,
+      fetch_status:"failed",
+      error_message:message,
+      processing_status:"pending"
     });
     await supabase.from("source_registry").update({
       last_checked_at:capturedAt,
