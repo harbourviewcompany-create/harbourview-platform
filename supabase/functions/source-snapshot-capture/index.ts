@@ -129,7 +129,7 @@ Deno.serve(async req => {
   const limit = Math.max(1,Math.min(Number(url.searchParams.get("limit") ?? "8"),8));
   const worker = url.searchParams.get("worker") ?? crypto.randomUUID();
 
-  const { data:sources,error } = await supabase.rpc("acquire_full_depth_crawl_targets",{
+  const { data:sources,error } = await supabase.rpc("acquire_recovery_primary_targets",{
     p_limit:limit,p_worker_id:worker
   });
   if (error) return Response.json({error:"acquire_failed",detail:error.message},{status:500});
