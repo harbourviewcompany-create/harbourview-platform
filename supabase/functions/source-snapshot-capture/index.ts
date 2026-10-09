@@ -46,8 +46,8 @@ async function fetchOne(source: any) {
       }
     });
     const body = await response.text();
-    const text = response.headers.get("content-type")?.toLowerCase().includes("text/html")
-      ? htmlToText(body) : body.slice(0, 500000);
+    const text = (response.headers.get("content-type")?.toLowerCase().includes("text/html")
+      ? htmlToText(body) : body).replace(/\u0000/g, " ").slice(0, 100000);
     const hash = await sha256(body);
     const { data: previous } = await supabase.from("source_snapshots")
       .select("raw_html_hash").eq("source_id",source.id).eq("fetch_status","success")
@@ -61,7 +61,7 @@ async function fetchOne(source: any) {
       raw_payload: null,
       captured_url: source.source_url,
       captured_title: source.source_name,
-      captured_text: text,
+      captured_text: response.ok ? text : null,
       raw_html_hash: hash,
       captured_at: capturedAt,
       fetch_status: response.ok ? "success" : "failed",
@@ -85,11 +85,11 @@ async function fetchOne(source: any) {
     }
     if (error || !snapshot) throw new Error(`snapshot_insert_failed: ${error?.message ?? "snapshot_missing"}`);
 
-    const backoffHours = response.ok ? 24 : response.status === 404 ? 168 : 6;
+    const backoffHours = response.ok ? 24 : ([401,403,404,410].includes(response.status) ? 168 : 24);
     await supabase.from("source_registry").update({
       last_checked_at: capturedAt,
       next_crawl_at: new Date(Date.now()+backoffHours*3600000).toISOString(),
-      network_status: response.ok ? "online" : "http_error",
+      network_status: response.ok ? "online" : ([401,403,404,410].includes(response.status) ? "quarantined" : "degraded"),
       consecutive_failures: response.ok ? 0 : 1,
       last_error_log: response.ok ? null : `HTTP ${response.status}`,
       locked_by: null, locked_until: null, updated_at: capturedAt
@@ -114,8 +114,8 @@ async function fetchOne(source: any) {
     });
     await supabase.from("source_registry").update({
       last_checked_at:capturedAt,
-      next_crawl_at:new Date(Date.now()+6*3600000).toISOString(),
-      network_status:"error", consecutive_failures:1, last_error_log:message.slice(0,500),
+      next_crawl_at:new Date(Date.now()+(/certificate|UnknownIssuer|NotValidForName|TLS/i.test(message) ? 168 : 24)*3600000).toISOString(),
+      network_status: /certificate|UnknownIssuer|NotValidForName|TLS/i.test(message) ? "quarantined" : "degraded", consecutive_failures:1, last_error_log:message.slice(0,500),
       locked_by:null, locked_until:null, updated_at:capturedAt
     }).eq("id",source.id);
     return {source_id:source.id,ok:false,error:message};
