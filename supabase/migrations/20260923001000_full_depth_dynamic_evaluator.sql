@@ -4,6 +4,7 @@ create or replace view public.v_jurisdiction_data_depth_evaluator
 with (security_invoker = on) as
 with base as (
   select s.*, c.country_name, c.jurisdiction_level,
+         d.display_name, d.layer,
          d.required_for_regulatory_publication, d.requires_primary_source, d.freshness_days
   from public.jurisdiction_data_depth_dimension_state s
   join public.countries c on c.iso_alpha2=s.jurisdiction_key

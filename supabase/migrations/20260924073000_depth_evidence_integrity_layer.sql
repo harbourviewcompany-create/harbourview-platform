@@ -204,6 +204,18 @@ grant select on public.jurisdiction_depth_evidence to anon,authenticated;
 grant select on public.jurisdiction_depth_conflicts to anon,authenticated;
 grant select on public.jurisdiction_depth_source_policy to anon,authenticated;
 
+-- Recovery replay: preserve the pre-existing integrity view shape instead of
+-- asking CREATE OR REPLACE VIEW to remove/reorder columns, which PostgreSQL forbids.
+do $replay$
+begin
+  if to_regclass('public.v_jurisdiction_depth_integrity') is not null
+     and to_regclass('public.v_jurisdiction_depth_integrity_legacy_20260922') is null then
+    alter view public.v_jurisdiction_depth_integrity
+      rename to v_jurisdiction_depth_integrity_legacy_20260922;
+  end if;
+end
+$replay$;
+
 create or replace view public.v_jurisdiction_depth_integrity
 with (security_invoker=true) as
 select

@@ -10,7 +10,7 @@ select c.id,'BR','depth-v1-br-medicinal-pharmaceutical','Controlled medicinal/ph
 'Legal entities may undertake expressly authorized Cannabis sativa L. cultivation for medicinal/pharmaceutical or research purposes under ANVISA authorization and applicable sanitary controls. Medicinal cannabis products are subject to authorization requirements for manufacture/import; this pathway does not establish general adult-use retail.',
 array['https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/controlados/rdcs-no-1-012-2026-e-no-1-013-2026','https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/2026/anvisa-publica-perguntas-e-respostas-sobre-a-autorizacao-sanitaria-de-produtos-de-cannabis'],
 'needs_review',now()
-from public.countries c where c.iso2='BR'
+from public.countries c where c.iso_alpha2='BR'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,verification='verified',last_verified_at=now();
 
 insert into public.regulatory_pathways
@@ -21,11 +21,11 @@ select c.id,'CO','depth-v1-co-medical-scientific','Medical and scientific cannab
 'Colombia maintains a licensed medical/scientific framework covering cultivation, manufacture of derivatives, import, export, storage, transport, commercialisation and distribution, with quotas and product controls. The 2025 reform further addresses access to medical cannabis and implementation of new product/licensing rules.',
 array['https://www.minsalud.gov.co/salud/medicamentos-y-tecnologias/Paginas/cannabis-uso-medicinal.aspx','https://www1.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=268436'],
 'needs_review',now()
-from public.countries c where c.iso2='CO'
+from public.countries c where c.iso_alpha2='CO'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,verification='verified',last_verified_at=now();
 
 insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
-select 'pathway',p.id,'RDC 1.013/2026','Cannabis cultivation requirements','regulation',
+select 'pathway',p.id,'RDC 1.013/2026','Cannabis cultivation requirements','regulator',
 'https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/controlados/rdcs-no-1-012-2026-e-no-1-013-2026',
 '2026-02-03',current_date,
 'ANVISA states RDC 1.013/2026 establishes requirements for cultivation of Cannabis sativa L. varieties with THC at or below 0.3% exclusively for medicinal, pharmaceutical or research purposes, with cultivation beginning only after ANVISA Special Authorization.'

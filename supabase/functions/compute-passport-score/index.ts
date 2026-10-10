@@ -4,9 +4,18 @@ import { isOperatorOrServiceRoleAuthorized } from "../_shared/harbourview-auth.t
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET")!;
+const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
+const publicSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "public" } });
+
+function safeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length ^ eb.length;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  return diff === 0;
+}
 
 const DIMENSIONS = {
   identity: { max: 15 }, licence: { max: 25 }, facility: { max: 10 },
@@ -18,17 +27,23 @@ type Dimension = keyof typeof DIMENSIONS;
 type Confidence = "high" | "medium" | "low" | "insufficient_data";
 interface DR { score: number; max_score: number; confidence: Confidence; evidence_count: number; flags: string[]; }
 
-function isAuthorized(req: Request): boolean {
-  return isOperatorOrServiceRoleAuthorized({
+async function isAuthorized(req: Request): Promise<boolean> {
+  const callerSecret = req.headers.get("x-operator-secret");
+  const authorization = req.headers.get("Authorization");
+  if (isOperatorOrServiceRoleAuthorized({
     operatorSecret: EDGE_OPERATOR_SECRET,
     serviceRoleKey: SUPABASE_SERVICE_KEY,
-    callerSecret: req.headers.get("x-operator-secret"),
-    authorization: req.headers.get("Authorization"),
-  });
+    callerSecret,
+    authorization,
+  })) return true;
+
+  if (!callerSecret) return false;
+  const check = await publicSupabase.rpc("verify_harbourview_edge_operator_secret", { candidate: callerSecret });
+  return !check.error && check.data === true;
 }
 
 Deno.serve(async (req) => {
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401 });
   }
   let org_id: string;
@@ -77,8 +92,8 @@ async function computePassport(org_id: string) {
   const { error: scoresErr } = await supabase.from("hv_passport_scores").upsert(scoreRows, { onConflict: "passport_id,dimension" });
   if (scoresErr) throw new Error(`Scores upsert failed: ${scoresErr.message}`);
 
-  await supabase.from("audit_events").insert({ entity_type: "passport", entity_id: passport.id, action: "passport.score.computed", actor: "system", actor_org_id: org_id, metadata: { completeness_score, completeness_band, verification_level: vl } });
-  await fetch(`${SUPABASE_URL}/functions/v1/generate-org-snapshot`, { method: "POST", headers: { "Content-Type": "application/json", "x-operator-secret": EDGE_OPERATOR_SECRET }, body: JSON.stringify({ org_id }) });
+  await publicSupabase.from("audit_events").insert({ entity_type: "passport", entity_id: passport.id, action: "passport.score.computed", actor: "system", actor_org_id: org_id, metadata: { completeness_score, completeness_band, verification_level: vl } });
+  await fetch(`${SUPABASE_URL}/functions/v1/generate-org-snapshot`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}` }, body: JSON.stringify({ org_id }) });
 
   return { org_id, passport_id: passport.id, completeness_score, completeness_band, verification_level: vl, export_readiness_band };
 }

@@ -51,10 +51,6 @@ const OPENAI_SEARCH_MODEL = "gpt-4o-mini-search-preview";
 const CLASSES = [
   "health_authority",
   "drug_control_authority",
-  "official_gazette",
-  "legislature",
-  "customs_import_export",
-  "procurement",
   "medicine_license_registry",
 ] as const;
 
@@ -412,10 +408,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const supplied = req.headers.get("x-harbourview-operator-secret") ?? "";
+  if (!supplied) return json({ ok: false, error: "unauthorized" }, 401);
+  const authCheck = await supabase.rpc("verify_source_engine_cron_secret", { candidate: supplied });
+  if (authCheck.error || authCheck.data !== true) return json({ ok: false, error: "unauthorized" }, 401);
+
   const body = await req.json().catch(() => ({}));
   const batchSize = Math.min(Math.max(Number(body.batchSize ?? 6), 1), 15);
-
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   const { data: jobRow, error: jobInsertErr } = await supabase
     .from("source_discovery_jobs")
@@ -436,9 +436,10 @@ Deno.serve(async (req: Request) => {
 
   // 1. Load queue countries (excluding non-viable) and existing coverage.
   const { data: queueRows, error: qErr } = await supabase
-    .from("source_expansion_coverage_queue")
-    .select("country, iso")
-    .order("country", { ascending: true });
+    .from("countries")
+    .select("country_name, iso_alpha2")
+    .eq("jurisdiction_level", "national")
+    .order("country_name", { ascending: true });
   if (qErr) {
     await supabase.from("source_discovery_jobs").update({ finished_at: new Date().toISOString(), status: "error", errors: JSON.stringify([qErr.message]) }).eq("id", jobId);
     return json({ ok: false, error: "queue_query_failed", detail: qErr.message }, 500);
@@ -480,11 +481,13 @@ Deno.serve(async (req: Request) => {
   // instead of blocking all progress every single run.
   const candidates: { country: string; iso: string; cls: string; lastAttempt: number }[] = [];
   for (const row of queueRows ?? []) {
-    if (!row.iso || NON_VIABLE_ISO.has(row.iso)) continue;
+    const iso = String(row.iso_alpha2 ?? "");
+    const country = String(row.country_name ?? "");
+    if (!iso || !country || NON_VIABLE_ISO.has(iso)) continue;
     for (const cls of CLASSES) {
-      if (existing.has(`${row.iso}|${cls}`)) continue;
-      const key = `${row.iso}|${cls}`;
-      candidates.push({ country: row.country, iso: row.iso, cls, lastAttempt: lastAttempted.get(key) ?? 0 });
+      if (existing.has(`${iso}|${cls}`)) continue;
+      const key = `${iso}|${cls}`;
+      candidates.push({ country, iso, cls, lastAttempt: lastAttempted.get(key) ?? 0 });
     }
   }
   candidates.sort((a, b) => a.lastAttempt - b.lastAttempt); // 0 (never attempted) sorts first
@@ -534,7 +537,24 @@ Deno.serve(async (req: Request) => {
       continue;
     }
     candidatesVerified++;
-    const finalUrl = live.resolvedUrl ?? candidate.url;
+    let finalUrl = live.resolvedUrl ?? candidate.url;
+    if (finalUrl.startsWith("http://")) {
+      const httpsUrl = finalUrl.replace(/^http:\/\//i, "https://");
+      const secure = await verifyLive(httpsUrl);
+      if (!secure.ok) {
+        const errText = `HTTPS upgrade failed for ${finalUrl} (${secure.error})`;
+        errors.push(`${p.country}/${p.cls}: ${errText}`);
+        await recordAttempt(false, errText);
+        continue;
+      }
+      finalUrl = secure.resolvedUrl ?? httpsUrl;
+    }
+    if (!finalUrl.startsWith("https://")) {
+      const errText = `non_https_candidate_rejected: ${finalUrl}`;
+      errors.push(`${p.country}/${p.cls}: ${errText}`);
+      await recordAttempt(false, errText);
+      continue;
+    }
 
     const { error: insErr } = await supabase.from("source_registry").insert({
       source_name: `${p.country} ${candidate.official_body_name || p.cls}`.slice(0, 200),
@@ -545,8 +565,19 @@ Deno.serve(async (req: Request) => {
       content_type: ["regulatory"],
       country: p.country,
       iso: p.iso,
+      jurisdiction: p.country,
+      jurisdiction_code: p.iso,
+      source_type: p.cls === "customs_import_export"
+        ? "customs"
+        : (p.cls === "official_gazette" || p.cls === "legislature")
+          ? "statute"
+          : "government_regulator",
       regulator_class: p.cls,
       relevance_status: "active",
+      is_active: true,
+      crawl_allowed: true,
+      network_status: "online",
+      next_crawl_at: new Date().toISOString(),
       notes: `Auto-discovered by source-discovery-engine via ${provider}, verified live (${new Date().toISOString().slice(0, 10)}), model confidence ${candidate.confidence}.`,
     });
     if (insErr) {
@@ -559,13 +590,7 @@ Deno.serve(async (req: Request) => {
     sourcesInserted++;
     await recordAttempt(true);
 
-    await supabase
-      .from("source_expansion_coverage_queue")
-      .update({
-        notes: `2026-08-11+: ${p.cls} auto-discovered and verified live by source-discovery-engine.`,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("iso", p.iso);
+    // Recovery project derives coverage directly from countries + source_registry.
   }
 
   await supabase

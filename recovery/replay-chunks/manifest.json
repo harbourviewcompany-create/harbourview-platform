@@ -1,0 +1,9 @@
+{
+  "status": "removed_after_replay",
+  "removed_at_utc": "2026-10-10T14:10:00Z",
+  "reason": "Temporary replay SQL chunks were deleted after the recovery database reconstruction because repository secret scanning detected historical JWT-looking literals in the generated chunk artifacts.",
+  "original_chunk_count": 25,
+  "original_migration_count": 1230,
+  "note": "The recovery database remains the source of truth for what was applied. Do not recreate or merge the deleted chunks. Canonical recovery-only migration edits remain under supabase/migrations for audit.",
+  "secret_values_preserved": false
+}

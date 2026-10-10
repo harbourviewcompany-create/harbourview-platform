@@ -77,7 +77,7 @@ returns table (
   gate_pass boolean
 )
 language sql stable security definer set search_path=public as $$
-  with x as (select * from public.jurisdiction_data_depth_evaluator)
+  with x as (select * from public.v_jurisdiction_data_depth_evaluator)
   select
     count(distinct jurisdiction_key)::bigint,
     count(distinct dimension_key)::bigint,

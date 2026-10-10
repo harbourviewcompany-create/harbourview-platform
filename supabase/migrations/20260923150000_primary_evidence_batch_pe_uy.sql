@@ -4,20 +4,27 @@
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Peru DIGEMID — medicinal cannabis and derivatives regulatory framework','https://www.digemid.minsa.gob.pe/webDigemid/uso-medicinal-del-cannabis-y-sus-derivados/','PE','Peru','PE',1,'regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Current DIGEMID page states Laws 30681 and 31312 plus DS 004-2023-SA regulate medicinal/therapeutic cannabis, including research, production, import and commercialization; page lists licensed establishments and patient/product controls. Verified 2026-09-23.','2026-09-23','medicines_regulator',array['regulatory','medical','licensing'],jsonb_build_object('jurisdiction_key','PE','primary_regulator',true))
+('Peru DIGEMID — medicinal cannabis and derivatives regulatory framework','https://www.digemid.minsa.gob.pe/webDigemid/uso-medicinal-del-cannabis-y-sus-derivados/','PE','Peru','PE',1,'regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Current DIGEMID page states Laws 30681 and 31312 plus DS 004-2023-SA regulate medicinal/therapeutic cannabis, including research, production, import and commercialization; page lists licensed establishments and patient/product controls. Verified 2026-09-23.','2026-09-23','health_authority',array['regulatory','medical','licensing'],jsonb_build_object('jurisdiction_key','PE','primary_regulator',true))
 on conflict (source_url) do update set verification_notes='Current DIGEMID medicinal-cannabis framework verified 2026-09-23.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '7 days',updated_at=now();
 
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Uruguay IRCCA — medicinal/research licensing and 2026 licence reforms','https://www.gub.uy/tramites/solicitud-licencias-cannabis-uso-medicinal-investigacion-cientifica','UY','Uruguay','UY',1,'government_regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Government procedure identifies IRCCA licensing for medicinal cannabis and scientific research, including cultivation licensing and application requirements. IRCCA 2026 Resolution 18/2026 reduced medicinal licence costs, removed production licence categories and extended licence duration retroactive to 2026-01-01. Verified 2026-09-23.','2026-09-23','cannabis_regulator',array['regulatory','licensing','medical','research'],jsonb_build_object('jurisdiction_key','UY','primary_regulator',true))
+('Uruguay IRCCA — medicinal/research licensing and 2026 licence reforms','https://www.gub.uy/tramites/solicitud-licencias-cannabis-uso-medicinal-investigacion-cientifica','UY','Uruguay','UY',1,'government_regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Government procedure identifies IRCCA licensing for medicinal cannabis and scientific research, including cultivation licensing and application requirements. IRCCA 2026 Resolution 18/2026 reduced medicinal licence costs, removed production licence categories and extended licence duration retroactive to 2026-01-01. Verified 2026-09-23.','2026-09-23','drug_control_authority',array['regulatory','licensing','medical','research'],jsonb_build_object('jurisdiction_key','UY','primary_regulator',true))
 on conflict (source_url) do update set verification_notes='Uruguay government/IRCCA medicinal and research licensing source verified 2026-09-23.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '7 days',updated_at=now();
 
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Uruguay IRCCA — approved cannabis licences','https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/','UY','Uruguay','UY',1,'regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Current IRCCA approved-licences page lists active licences for psychoactive cannabis cultivation for adult use and separate medicinal cultivation licences. Verified 2026-09-23.','2026-09-23','cannabis_regulator',array['licensing','adult_use','medical'],jsonb_build_object('jurisdiction_key','UY','primary_regulator',true))
+('Uruguay IRCCA — approved cannabis licences','https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/','UY','Uruguay','UY',1,'regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Current IRCCA approved-licences page lists active licences for psychoactive cannabis cultivation for adult use and separate medicinal cultivation licences. Verified 2026-09-23.','2026-09-23','drug_control_authority',array['licensing','adult_use','medical'],jsonb_build_object('jurisdiction_key','UY','primary_regulator',true))
 on conflict (source_url) do update set verification_notes='Current IRCCA approved-licences page verified 2026-09-23.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '7 days',updated_at=now();
+
+-- Recovery replay: retire prior active direct evidence before the newer Peru authority row.
+update public.regulatory_market_access_evidence
+set active=false
+where jurisdiction_iso2='PE'
+  and active=true
+  and parent_iso2 is null;
 
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
@@ -45,7 +52,7 @@ select c.id,'PE','depth-v1-pe-medical-therapeutic','Licensed medicinal and thera
 'Peru regulates medicinal and therapeutic cannabis and derivatives through licensing, sanitary registration/authorization and controlled pharmaceutical distribution. DIGEMID identifies research, production, import and commercialization within the regulated framework and lists licensed establishments for import and/or commercialization.',
 array['https://www.digemid.minsa.gob.pe/webDigemid/uso-medicinal-del-cannabis-y-sus-derivados/','https://www.gob.pe/institucion/minsa/normas-legales/4139565-004-2023-sa'],
 'needs_review',now()
-from public.countries c where c.iso2='PE'
+from public.countries c where c.iso_alpha2='PE'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now();
 
 insert into public.regulatory_pathways
@@ -56,17 +63,17 @@ select c.id,'UY','depth-v1-uy-medicinal-research','Licensed medicinal cannabis a
 'Uruguay maintains a licensing regime for medicinal cannabis and scientific research. The current government procedure requires an IRCCA licence and identifies cultivation as a licensed activity; IRCCA Resolution 18/2026 changed medicinal/research licence costs, production categories and duration with retroactive effect from 2026-01-01.',
 array['https://www.gub.uy/tramites/solicitud-licencias-cannabis-uso-medicinal-investigacion-cientifica','https://ircca.gub.uy/ircca-adopta-medidas-con-el-objetivo-de-desburocratizar-y-favorecer-el-acceso-a-licencias/'],
 'needs_review',now()
-from public.countries c where c.iso2='UY'
+from public.countries c where c.iso_alpha2='UY'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now();
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
 select c.id,'UY','depth-v1-uy-adult-use-cultivation','Licensed psychoactive cannabis cultivation for adult-use market',
-'licensed_market','Law 19.172 and implementing regulations','IRCCA','active',null,
+'adult_use_commercial','Law 19.172 and implementing regulations','IRCCA','active',null,
 'IRCCA current licence records identify active licences for psychoactive cannabis cultivation for adult use. This record evidences licensed cultivation, not a claim that every retail or cross-border commercial activity is permitted.',
 array['https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/'],
 'needs_review',now()
-from public.countries c where c.iso2='UY'
+from public.countries c where c.iso_alpha2='UY'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now();
 
 insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)

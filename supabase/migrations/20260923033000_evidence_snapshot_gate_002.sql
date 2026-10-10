@@ -11,6 +11,7 @@ select
   ss.raw_html_hash snapshot_hash,
   ss.captured_at fetched_at,
   ss.fetch_status,
+  ss.captured_url,
   sr.source_url registered_source_url,
   case
     when ss.id is null then false
