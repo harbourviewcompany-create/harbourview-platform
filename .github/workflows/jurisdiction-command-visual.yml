@@ -61,7 +61,7 @@ jobs:
         run: >-
           npx vitest run
           tests/dashboard/jurisdictionCommand.test.ts
-          tests/dashboard/mobileCommandCentreV2.test.ts
+          tests/markets/marketEconomics.test.ts
 
       - name: Type check exact source
         run: npm run typecheck
