@@ -1,8 +1,10 @@
 // compute-passport-score — Harbourview MVP Phase 2
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isOperatorOrServiceRoleAuthorized } from "../_shared/harbourview-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
 const publicSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "public" } });
@@ -26,11 +28,15 @@ type Confidence = "high" | "medium" | "low" | "insufficient_data";
 interface DR { score: number; max_score: number; confidence: Confidence; evidence_count: number; flags: string[]; }
 
 async function isAuthorized(req: Request): Promise<boolean> {
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (bearer && safeEqual(bearer, SUPABASE_SERVICE_KEY)) return true;
+  const callerSecret = req.headers.get("x-operator-secret");
+  const authorization = req.headers.get("Authorization");
+  if (isOperatorOrServiceRoleAuthorized({
+    operatorSecret: EDGE_OPERATOR_SECRET,
+    serviceRoleKey: SUPABASE_SERVICE_KEY,
+    callerSecret,
+    authorization,
+  })) return true;
 
-  const callerSecret = req.headers.get("x-operator-secret") ?? "";
   if (!callerSecret) return false;
   const check = await publicSupabase.rpc("verify_harbourview_edge_operator_secret", { candidate: callerSecret });
   return !check.error && check.data === true;
