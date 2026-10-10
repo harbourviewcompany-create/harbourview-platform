@@ -177,7 +177,12 @@ test.describe('Jurisdiction Command mobile evidence', () => {
 
     try {
       const page = await context.newPage()
-      await page.route('**/api/dashboard/jurisdiction-command?**', async route => {
+      await page.route('**/api/dashboard/jurisdiction-command**', async route => {
+        const url = new URL(route.request().url())
+        if (url.pathname !== '/api/dashboard/jurisdiction-command') {
+          await route.continue()
+          return
+        }
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"forced evidence failure"}' })
       })
       await page.goto('/dashboard?country=CA&role=all&section=jurisdiction&page=access-pathway', {
