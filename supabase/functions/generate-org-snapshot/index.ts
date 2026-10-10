@@ -1,26 +1,32 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { isOperatorOrServiceRoleAuthorized } from "../_shared/harbourview-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
+const publicSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "public" } });
 
-function isAuthorized(req: Request): boolean {
-  const operatorKey = "operatorSecret" as const;
-  const serviceKey = "serviceRoleKey" as const;
-  const callerKey = "callerSecret" as const;
-  return isOperatorOrServiceRoleAuthorized({
-    [operatorKey]: EDGE_OPERATOR_SECRET,
-    [serviceKey]: SUPABASE_SERVICE_KEY,
-    [callerKey]: req.headers.get("x-operator-secret"),
-    authorization: req.headers.get("Authorization"),
-  });
+function safeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length ^ eb.length;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  return diff === 0;
+}
+
+async function isAuthorized(req: Request): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (bearer && safeEqual(bearer, SUPABASE_SERVICE_KEY)) return true;
+
+  const callerSecret = req.headers.get("x-operator-secret") ?? "";
+  if (!callerSecret) return false;
+  const check = await publicSupabase.rpc("verify_harbourview_edge_operator_secret", { candidate: callerSecret });
+  return !check.error && check.data === true;
 }
 
 Deno.serve(async (req) => {
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401 });
   }
 
@@ -35,8 +41,7 @@ Deno.serve(async (req) => {
 
   try {
     const snapshot = await buildSnapshot(org_id);
-    const { error } = await supabase
-      .schema("public")
+    const { error } = await publicSupabase
       .from("hv_org_snapshots")
       .upsert({ org_id, ...snapshot, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
     if (error) throw new Error(`Snapshot upsert failed: ${error.message}`);
