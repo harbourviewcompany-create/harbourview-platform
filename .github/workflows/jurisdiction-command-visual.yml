@@ -10,6 +10,8 @@ on:
       - lib/dashboard/jurisdictionCommandContract.ts
       - lib/dashboard/dashboardLiveData.ts
       - lib/hv/active-workspace.ts
+      - data/harbourview/market-economics.ts
+      - tests/markets/marketEconomics.test.ts
       - supabase/migrations/*jurisdiction_command*.sql
       - tests/dashboard/jurisdictionCommand.test.ts
       - tests/e2e/jurisdiction-command.spec.ts
@@ -61,7 +63,7 @@ jobs:
         run: >-
           npx vitest run
           tests/dashboard/jurisdictionCommand.test.ts
-          tests/dashboard/mobileCommandCentreV2.test.ts
+          tests/markets/marketEconomics.test.ts
 
       - name: Type check exact source
         run: npm run typecheck

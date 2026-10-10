@@ -75,6 +75,22 @@ describe('Jurisdiction Command production contracts', () => {
     expect(sectionSource).toContain('Conflict assessment')
     expect(sectionSource).toContain('Not modelled')
   })
+  it('projects reviewed economics into the live authenticated comparison without raw provenance URLs', () => {
+    expect(routeSource).toContain('getMarketEconomics(item.iso2)')
+    expect(sectionSource).toContain('getMarketEconomics(canonicalContext.country)')
+    expect(sectionSource).toContain('Reviewed upstream price signal')
+    expect(sectionSource).toContain('Reviewed downstream comparator')
+    expect(routeSource).toContain('displayValue: formatMarketPrice(economics.upstreamPrice)')
+    expect(routeSource).toContain('sourceLabel: economics.upstreamPrice.sourceLabel')
+    expect(sectionSource).toContain('Upstream price')
+    expect(sectionSource).toContain('Downstream comparator')
+    expect(sectionSource).toContain('Canada share')
+    expect(sectionSource).not.toContain('item.economics.upstreamPrice.sourceUrl')
+    expect(sectionSource).not.toContain('item.economics.downstreamPrice.sourceUrl')
+    expect(routeSource).not.toContain('sourceUrl: economics.upstreamPrice')
+    expect(routeSource).not.toContain('sourceUrl: economics.downstreamPrice')
+  })
+
 
   it('corrects the Canada ACMPR and legislative-review timeline in a forward migration', () => {
     expect(migrationSource).toContain('March 22, 2024')

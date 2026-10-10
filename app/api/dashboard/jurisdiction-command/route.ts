@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { resolveActiveWorkspace } from '@/lib/hv/active-workspace'
+import { formatMarketPrice, getMarketEconomics, isMarketPriceStale } from '@/data/harbourview/market-economics'
 import {
   getCannabisOperators,
   getComparisonCountryScores,
@@ -450,13 +451,42 @@ export async function GET(req: NextRequest) {
         permitAuthority: flow.permit_authority,
       })),
       counterparties: [...verifiedOperators, ...verifiedProfessionals].slice(0, 12),
-      comparisons: comparisons.map(item => ({
-        iso2: item.iso2,
-        name: item.name,
-        opportunityScore: item.opportunity_score,
-        marketAccessStatus: item.market_access_status,
-        dataCompleteness: item.data_completeness,
-      })),
+      comparisons: comparisons.map(item => {
+        const economics = getMarketEconomics(item.iso2)
+        return {
+          iso2: item.iso2,
+          name: item.name,
+          opportunityScore: item.opportunity_score,
+          marketAccessStatus: item.market_access_status,
+          dataCompleteness: item.data_completeness,
+          economics: economics ? {
+            upstreamPrice: economics.upstreamPrice ? {
+              displayValue: formatMarketPrice(economics.upstreamPrice),
+              basis: economics.upstreamPrice.basis,
+              asOf: economics.upstreamPrice.asOf,
+              confidence: economics.upstreamPrice.confidence,
+              sourceLabel: economics.upstreamPrice.sourceLabel,
+              stale: isMarketPriceStale(economics.upstreamPrice),
+            } : null,
+            downstreamPrice: economics.downstreamPrice ? {
+              displayValue: formatMarketPrice(economics.downstreamPrice),
+              basis: economics.downstreamPrice.basis,
+              asOf: economics.downstreamPrice.asOf,
+              confidence: economics.downstreamPrice.confidence,
+              sourceLabel: economics.downstreamPrice.sourceLabel,
+              stale: isMarketPriceStale(economics.downstreamPrice),
+            } : null,
+            importContext: economics.importContext ? {
+              totalKg: economics.importContext.totalKg,
+              canadianKg: economics.importContext.canadianKg ?? null,
+              period: economics.importContext.period,
+              sourceLabel: economics.importContext.sourceLabel,
+              sourceUpdatedAt: economics.importContext.sourceUpdatedAt,
+              confidence: economics.importContext.confidence,
+            } : null,
+          } : null,
+        }
+      }),
     }
 
     return NextResponse.json(dto, {
