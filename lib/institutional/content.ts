@@ -55,6 +55,12 @@ export const intelligenceModules: ModuleItem[] = [
     href: '/intelligence/counterparty-intelligence',
   },
   {
+    title: 'Cannabis Export OS',
+    description: 'Private operator workspace for international buyers, buying committees, Canadian suppliers, RFQs, product matching, deal economics and execution.',
+    href: '/intelligence/cannabis-export',
+    eyebrow: 'Admin / operator',
+  },
+  {
     title: 'Logistics & Trade Routes',
     description: 'Education on controlled logistics, chain of custody, route feasibility, documentation and shipment risk considerations.',
     href: '/intelligence/logistics-trade-routes',
