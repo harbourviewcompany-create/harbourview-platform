@@ -18,6 +18,41 @@ export type CannabisExportAccount = {
   updated_at: string
 }
 
+export type CannabisExportMarket = {
+  id: string
+  market_key: string
+  country: string
+  iso2: string | null
+  market_rank: number | null
+  legal_status: string | null
+  import_status: string | null
+  permitted_products: string | null
+  latest_volume_signal: string | null
+  canada_position: string | null
+  trend: string | null
+  regulatory_changes: string | null
+  trade_risk: string | null
+  opportunity_score: number | null
+  priority_band: string | null
+  last_verified: string | null
+  source_urls: string[]
+  payload: Record<string, unknown>
+  updated_at: string
+}
+
+export type CannabisExportPlaybook = {
+  id: string
+  playbook_key: string
+  title: string
+  category: string
+  summary: string | null
+  content: Record<string, unknown>
+  status: string
+  last_verified: string | null
+  source_urls: string[]
+  updated_at: string
+}
+
 export type CannabisExportContact = {
   id: string
   account_id: string
@@ -131,6 +166,8 @@ export type CannabisExportTask = {
 
 export type CannabisExportWorkspaceData = {
   accounts: CannabisExportAccount[]
+  markets: CannabisExportMarket[]
+  playbooks: CannabisExportPlaybook[]
   contacts: CannabisExportContact[]
   products: CannabisExportProduct[]
   matches: CannabisExportMatch[]
@@ -142,6 +179,8 @@ export type CannabisExportWorkspaceData = {
 
 type ExportTable =
   | 'cannabis_export_accounts'
+  | 'cannabis_export_markets'
+  | 'cannabis_export_playbooks'
   | 'cannabis_export_contacts'
   | 'cannabis_export_products'
   | 'cannabis_export_matches'
@@ -152,6 +191,8 @@ type ExportTable =
 
 const TABLES: ExportTable[] = [
   'cannabis_export_accounts',
+  'cannabis_export_markets',
+  'cannabis_export_playbooks',
   'cannabis_export_contacts',
   'cannabis_export_products',
   'cannabis_export_matches',
@@ -175,9 +216,11 @@ function isMissingRelation(error: { code?: string; message?: string } | null) {
 async function selectTable(table: ExportTable) {
   const client = await createSupabaseServiceClient()
   const query = client.schema('public').from(table).select('*')
-  const ordered = table === 'cannabis_export_tasks'
-    ? query.order('day_number', { ascending: true, nullsFirst: false })
-    : table === 'cannabis_export_rfqs'
+  const ordered = table === 'cannabis_export_markets'
+    ? query.order('market_rank', { ascending: true, nullsFirst: false })
+    : table === 'cannabis_export_tasks'
+      ? query.order('day_number', { ascending: true, nullsFirst: false })
+      : table === 'cannabis_export_rfqs'
       ? query.order('priority', { ascending: true, nullsFirst: false })
       : table === 'cannabis_export_contacts'
         ? query.order('sequence', { ascending: true, nullsFirst: false })
@@ -194,6 +237,8 @@ async function selectTable(table: ExportTable) {
 export async function loadCannabisExportWorkspace(): Promise<CannabisExportWorkspaceData> {
   const [
     accounts,
+    markets,
+    playbooks,
     contacts,
     products,
     matches,
@@ -205,6 +250,8 @@ export async function loadCannabisExportWorkspace(): Promise<CannabisExportWorks
 
   return {
     accounts: accounts as CannabisExportAccount[],
+    markets: markets as CannabisExportMarket[],
+    playbooks: playbooks as CannabisExportPlaybook[],
     contacts: contacts as CannabisExportContact[],
     products: products as CannabisExportProduct[],
     matches: matches as CannabisExportMatch[],
@@ -217,6 +264,8 @@ export async function loadCannabisExportWorkspace(): Promise<CannabisExportWorks
 
 export const cannabisExportMutableFields = {
   account: new Set(['status', 'priority_band', 'last_verified']),
+  market: new Set(['priority_band', 'last_verified']),
+  playbook: new Set(['status', 'last_verified']),
   contact: new Set(['outreach_status', 'last_verified']),
   match: new Set(['status']),
   rfq: new Set(['status']),
@@ -237,6 +286,8 @@ export type CannabisExportMutableResource = keyof typeof cannabisExportMutableFi
 
 const resourceTable: Record<CannabisExportMutableResource, ExportTable> = {
   account: 'cannabis_export_accounts',
+  market: 'cannabis_export_markets',
+  playbook: 'cannabis_export_playbooks',
   contact: 'cannabis_export_contacts',
   match: 'cannabis_export_matches',
   rfq: 'cannabis_export_rfqs',
@@ -249,9 +300,9 @@ export async function updateCannabisExportRecord(args: {
   id: string
   patch: Record<string, unknown>
 }) {
-  const allowed = cannabisExportMutableFields[args.resource]
+  const allowed: ReadonlySet<string> = cannabisExportMutableFields[args.resource]
   const sanitized = Object.fromEntries(
-    Object.entries(args.patch).filter(([key]) => allowed.has(key as never)),
+    Object.entries(args.patch).filter(([key]) => allowed.has(key)),
   )
   if (!Object.keys(sanitized).length) {
     throw new Error('No permitted fields supplied.')

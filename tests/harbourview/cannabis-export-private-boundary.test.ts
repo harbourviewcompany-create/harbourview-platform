@@ -31,6 +31,8 @@ describe('Cannabis Export OS private boundary', () => {
     const migration = readRepoFile('supabase/migrations/20261011152500_cannabis_export_workspace.sql')
     const tables = [
       'cannabis_export_accounts',
+      'cannabis_export_markets',
+      'cannabis_export_playbooks',
       'cannabis_export_contacts',
       'cannabis_export_products',
       'cannabis_export_matches',

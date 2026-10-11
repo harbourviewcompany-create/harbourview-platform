@@ -32,6 +32,51 @@ create index if not exists cannabis_export_accounts_priority_idx
 create index if not exists cannabis_export_accounts_country_idx
   on public.cannabis_export_accounts(country);
 
+create table if not exists public.cannabis_export_markets (
+  id uuid primary key default gen_random_uuid(),
+  market_key text not null unique,
+  country text not null,
+  iso2 text,
+  market_rank integer,
+  legal_status text,
+  import_status text,
+  permitted_products text,
+  latest_volume_signal text,
+  canada_position text,
+  trend text,
+  regulatory_changes text,
+  trade_risk text,
+  opportunity_score numeric,
+  priority_band text,
+  last_verified date,
+  source_urls text[] not null default '{}',
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists cannabis_export_markets_rank_idx
+  on public.cannabis_export_markets(market_rank nulls last, opportunity_score desc nulls last);
+create index if not exists cannabis_export_markets_country_idx
+  on public.cannabis_export_markets(country);
+
+create table if not exists public.cannabis_export_playbooks (
+  id uuid primary key default gen_random_uuid(),
+  playbook_key text not null unique,
+  title text not null,
+  category text not null,
+  summary text,
+  content jsonb not null default '{}'::jsonb,
+  status text not null default 'active',
+  last_verified date,
+  source_urls text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists cannabis_export_playbooks_category_idx
+  on public.cannabis_export_playbooks(category, updated_at desc);
+
 create table if not exists public.cannabis_export_contacts (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.cannabis_export_accounts(id) on delete cascade,
@@ -180,6 +225,8 @@ create table if not exists public.cannabis_export_tasks (
 );
 
 alter table public.cannabis_export_accounts enable row level security;
+alter table public.cannabis_export_markets enable row level security;
+alter table public.cannabis_export_playbooks enable row level security;
 alter table public.cannabis_export_contacts enable row level security;
 alter table public.cannabis_export_products enable row level security;
 alter table public.cannabis_export_matches enable row level security;
@@ -189,6 +236,8 @@ alter table public.cannabis_export_benchmarks enable row level security;
 alter table public.cannabis_export_tasks enable row level security;
 
 revoke all on table public.cannabis_export_accounts from public, anon, authenticated;
+revoke all on table public.cannabis_export_markets from public, anon, authenticated;
+revoke all on table public.cannabis_export_playbooks from public, anon, authenticated;
 revoke all on table public.cannabis_export_contacts from public, anon, authenticated;
 revoke all on table public.cannabis_export_products from public, anon, authenticated;
 revoke all on table public.cannabis_export_matches from public, anon, authenticated;
@@ -198,6 +247,8 @@ revoke all on table public.cannabis_export_benchmarks from public, anon, authent
 revoke all on table public.cannabis_export_tasks from public, anon, authenticated;
 
 grant select, insert, update, delete on table public.cannabis_export_accounts to service_role;
+grant select, insert, update, delete on table public.cannabis_export_markets to service_role;
+grant select, insert, update, delete on table public.cannabis_export_playbooks to service_role;
 grant select, insert, update, delete on table public.cannabis_export_contacts to service_role;
 grant select, insert, update, delete on table public.cannabis_export_products to service_role;
 grant select, insert, update, delete on table public.cannabis_export_matches to service_role;
@@ -212,3 +263,8 @@ comment on table public.cannabis_export_contacts is
   'Private decision-maker and outreach records for cannabis export intelligence.';
 comment on table public.cannabis_export_deals is
   'Private buyer-supplier deal economics and negotiation state for cannabis export opportunities.';
+
+comment on table public.cannabis_export_markets is
+  'Private current-market intelligence for lawful medical/scientific cannabis export pathways.';
+comment on table public.cannabis_export_playbooks is
+  'Private export strategy, compliance, market-entry and execution playbooks.';

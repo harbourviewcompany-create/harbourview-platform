@@ -52,6 +52,8 @@ export async function GET(request: NextRequest) {
 
 const RESOURCES = new Set<CannabisExportMutableResource>([
   'account',
+  'market',
+  'playbook',
   'contact',
   'match',
   'rfq',

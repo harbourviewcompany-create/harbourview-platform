@@ -17,6 +17,36 @@ type Account = {
   payload: Record<string, unknown>
 }
 
+type Market = {
+  id: string
+  country: string
+  iso2: string | null
+  market_rank: number | null
+  legal_status: string | null
+  import_status: string | null
+  permitted_products: string | null
+  latest_volume_signal: string | null
+  canada_position: string | null
+  trend: string | null
+  regulatory_changes: string | null
+  trade_risk: string | null
+  opportunity_score: number | null
+  priority_band: string | null
+  last_verified: string | null
+  source_urls: string[]
+}
+
+type Playbook = {
+  id: string
+  title: string
+  category: string
+  summary: string | null
+  content: Record<string, unknown>
+  status: string
+  last_verified: string | null
+  source_urls: string[]
+}
+
 type Contact = {
   id: string
   account_id: string
@@ -106,6 +136,8 @@ type Task = {
 
 type WorkspaceData = {
   accounts: Account[]
+  markets: Market[]
+  playbooks: Playbook[]
   contacts: Contact[]
   products: Product[]
   matches: Match[]
@@ -115,11 +147,13 @@ type WorkspaceData = {
   tasks: Task[]
 }
 
-type Resource = 'account' | 'contact' | 'match' | 'rfq' | 'deal' | 'task'
-type Tab = 'overview' | 'buyers' | 'contacts' | 'suppliers' | 'products' | 'matches' | 'rfqs' | 'deals' | 'tasks'
+type Resource = 'account' | 'market' | 'playbook' | 'contact' | 'match' | 'rfq' | 'deal' | 'task'
+type Tab = 'overview' | 'markets' | 'strategy' | 'buyers' | 'contacts' | 'suppliers' | 'products' | 'matches' | 'rfqs' | 'deals' | 'tasks'
 
 const EMPTY: WorkspaceData = {
   accounts: [],
+  markets: [],
+  playbooks: [],
   contacts: [],
   products: [],
   matches: [],
@@ -131,6 +165,8 @@ const EMPTY: WorkspaceData = {
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'overview', label: 'Overview' },
+  { id: 'markets', label: 'Markets' },
+  { id: 'strategy', label: 'Strategy' },
   { id: 'buyers', label: 'Buyers' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'suppliers', label: 'Suppliers' },
@@ -301,8 +337,9 @@ export default function CannabisExportWorkspace() {
           </div>
         ) : null}
 
-        <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+        <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-9">
           {[
+            ['Markets', data.markets.length],
             ['Buyers', buyers.length],
             ['Suppliers', suppliers.length],
             ['Contacts', data.contacts.length],
@@ -399,6 +436,74 @@ export default function CannabisExportWorkspace() {
               </div>
             </section>
           </div>
+        ) : null}
+
+        {tab === 'markets' ? (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {data.markets
+              .filter((market) => contains(market.country, market.priority_band, market.legal_status, market.import_status, market.trend))
+              .sort((a, b) => (a.market_rank ?? 999) - (b.market_rank ?? 999))
+              .map((market) => (
+                <article key={market.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-white/35">Rank {market.market_rank ?? '—'}</div>
+                      <h3 className="mt-1 text-xl font-semibold">{market.country}</h3>
+                    </div>
+                    <span className="rounded-full border border-amber-200/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-amber-100/80">
+                      {market.priority_band ?? 'research'}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-xl border border-white/8 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/30">Legal</div>
+                      <div className="mt-1 text-white/68">{market.legal_status ?? '—'}</div>
+                    </div>
+                    <div className="rounded-xl border border-white/8 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/30">Imports</div>
+                      <div className="mt-1 text-white/68">{market.import_status ?? '—'}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3 text-sm leading-6 text-white/55">
+                    <p><span className="text-white/30">Products · </span>{market.permitted_products ?? '—'}</p>
+                    <p><span className="text-white/30">Demand · </span>{market.latest_volume_signal ?? '—'}</p>
+                    <p><span className="text-white/30">Canada · </span>{market.canada_position ?? '—'}</p>
+                    <p><span className="text-white/30">Change · </span>{market.regulatory_changes ?? market.trend ?? '—'}</p>
+                    {market.trade_risk ? <p><span className="text-white/30">Risk · </span>{market.trade_risk}</p> : null}
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <SourceLinks urls={market.source_urls} />
+                    <span className="text-xs text-white/30">verified {market.last_verified ?? '—'}</span>
+                  </div>
+                </article>
+              ))}
+          </section>
+        ) : null}
+
+        {tab === 'strategy' ? (
+          <section className="grid gap-4 xl:grid-cols-2">
+            {data.playbooks
+              .filter((playbook) => contains(playbook.title, playbook.category, playbook.summary))
+              .map((playbook) => (
+                <article key={playbook.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-amber-200/60">{label(playbook.category)}</div>
+                      <h3 className="mt-1 text-xl font-semibold">{playbook.title}</h3>
+                    </div>
+                    <StatusSelect value={playbook.status} options={['active', 'draft', 'review', 'retired']} onChange={(value) => void patch('playbook', playbook.id, { status: value })} />
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-white/58">{playbook.summary ?? '—'}</p>
+                  <pre className="mt-4 max-h-80 overflow-auto whitespace-pre-wrap rounded-xl border border-white/8 bg-black/10 p-4 font-sans text-xs leading-5 text-white/48">
+                    {JSON.stringify(playbook.content, null, 2)}
+                  </pre>
+                  <div className="mt-4 flex items-center justify-between">
+                    <SourceLinks urls={playbook.source_urls} />
+                    <span className="text-xs text-white/30">verified {playbook.last_verified ?? '—'}</span>
+                  </div>
+                </article>
+              ))}
+          </section>
         ) : null}
 
         {tab === 'buyers' ? (
