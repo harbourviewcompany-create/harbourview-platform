@@ -63,7 +63,6 @@ jobs:
             "Type Check"
             "Next.js Build"
             "Security / Leakage"
-            "Critical Env Secrets"
             "Compare repository and live migration ledgers"
           )
 
@@ -110,11 +109,22 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check critical production environment secrets
+        env:
+          HF_TOKEN_SERVER: ${{ secrets.HF_TOKEN_SERVER }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HARBOURVIEW_EDGE_OPERATOR_SECRET: ${{ secrets.HARBOURVIEW_EDGE_OPERATOR_SECRET }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          HF_ENDPOINT_EMBED_BGE_M3: ${{ secrets.HF_ENDPOINT_EMBED_BGE_M3 }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+        run: npm run check:critical-env
 
       - name: Typecheck
         run: npm run typecheck

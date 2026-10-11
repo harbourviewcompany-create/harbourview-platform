@@ -35,7 +35,7 @@ set -euo pipefail
 #
 # What actually stops the spend is `git.deploymentEnabled` in vercel.json, which
 # decides whether a push creates a deployment at all. It is now an allowlist:
-# `main` and `preview/*` only. Everything else never reaches this script.
+# `preview/*` only. Production `main` is intentionally denied here and is created explicitly by the exact-SHA promotion workflow after release gates pass. Everything else never reaches this script.
 #
 # So this file is the second layer, not the first. It still earns its place:
 # it protects production from the duplicate/legacy projects, and it governs the
@@ -148,7 +148,7 @@ fi
 commit_subject="${commit_message%%$'\n'*}"
 
 # A `preview/*` branch is opt-in by its name. vercel.json's deploymentEnabled
-# allowlist only creates deployments for `main` and `preview/*`, so a build that
+# allowlist only creates automatic deployments for `preview/*`, so a build that
 # gets here on such a branch was asked for deliberately -- requiring a commit
 # marker as well would be a second lock on the same door.
 if [[ "$branch" == preview/* ]]; then
