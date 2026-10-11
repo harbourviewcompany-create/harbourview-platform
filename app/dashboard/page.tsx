@@ -14,7 +14,7 @@ import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dash
 import { canAccess, checkFeatureAccess, normalizeSubscriptionTier } from '@/lib/billing/entitlements'
 import { getUserTier } from '@/lib/stripe/tier'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { attachDecisionIntelDashboardRoutes } from '@/lib/intelligence-os/dashboardRoutes'
 import type { RoleId } from '@/types/globe-router'
 
@@ -91,6 +91,12 @@ export default async function DashboardPage({
   const urlRole = normalizeRoleParam(firstParam(params.role))
   const urlPage = normalizeCommandPage(firstParam(params.page))
   const openSignalsSearch = firstParam(params.search) === '1'
+  const createdWorkspaceParam = firstParam(params.bound) === '1'
+    ? firstParam(params.created)
+    : null
+  const createdWorkspaceId = createdWorkspaceParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(createdWorkspaceParam)
+    ? createdWorkspaceParam
+    : null
 
   let userId: string | null = null
   let userEmail: string | null = null
@@ -147,6 +153,35 @@ export default async function DashboardPage({
         ]), CONTEXT_READ_TIMEOUT_MS)
         hasOrg = Boolean(membership && workspace)
         if (!hasOrg) activeWorkspaceId = null
+      }
+
+      if (!hasOrg && createdWorkspaceId) {
+        // A post-create workspace hint is never trusted by itself. It is only a
+        // recovery path for the short window where the authenticated/RLS read
+        // can lag the committed membership immediately after organization
+        // creation.
+        const workspaceClient = await createSupabaseServiceClient()
+        const [{ data: membership }, { data: workspace }] = await withTimeout(() => Promise.all([
+          workspaceClient
+            .schema('public')
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('workspace_id', createdWorkspaceId)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .maybeSingle(),
+          workspaceClient
+            .schema('public')
+            .from('workspaces')
+            .select('id,status')
+            .eq('id', createdWorkspaceId)
+            .eq('status', 'active')
+            .maybeSingle(),
+        ]), CONTEXT_READ_TIMEOUT_MS)
+        if (membership && workspace) {
+          activeWorkspaceId = createdWorkspaceId
+          hasOrg = true
+        }
       }
     }
   } catch (error) {

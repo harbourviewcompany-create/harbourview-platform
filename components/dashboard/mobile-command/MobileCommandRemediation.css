@@ -117,6 +117,43 @@
   min-height: 54px;
 }
 
+.hvm-op-org-actions {
+  order: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hvm-op-org-action {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(198, 165, 90, 0.22);
+  border-radius: 10px;
+  background: rgba(198, 165, 90, 0.05);
+  color: var(--hvm2-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.hvm-op-intelligence-group {
+  order: 1;
+}
+
+.hvm-op-attention-group {
+  order: 2;
+}
+
+.hvm-op-watch-group {
+  order: 3;
+}
+
 .hvm-op-operating-picture {
   order: 4;
   padding: 14px 0 0;
@@ -313,5 +350,25 @@
   .hvm-op-page-title {
     margin-top: 0;
     font-size: 22px;
+  }
+
+  /* Preserve the compact coverage summary while collapsing verbose diagnostics
+     on the shortest supported operator viewport. */
+  .hvm-domain-depth {
+    margin-bottom: 6px;
+    padding: 7px 9px;
+  }
+
+  .hvm-domain-depth-diag,
+  .hvm-domain-depth-gap {
+    display: none;
+  }
+
+  .hvm-op-role-focus {
+    margin-bottom: 6px !important;
+  }
+
+  .hvm-op-live-strip {
+    margin-bottom: 6px !important;
   }
 }

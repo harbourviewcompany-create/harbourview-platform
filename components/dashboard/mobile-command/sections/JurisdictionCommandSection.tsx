@@ -138,16 +138,20 @@ export function JurisdictionSection(props: Props) {
       return Array.isArray(payload.signals) ? payload.signals : []
     }).catch(() => [] as SafeSignal[])
 
-    void Promise.all([commandRequest, signalRequest])
-      .then(([command, nextSignals]) => {
+    void commandRequest
+      .then(command => {
         if (controller.signal.aborted) return
         setData(command)
-        setSignals(nextSignals)
       })
       .catch(fetchError => {
         if (controller.signal.aborted) return
         setError(fetchError instanceof Error ? fetchError.message : 'Jurisdiction command data is unavailable.')
       })
+
+    void signalRequest.then(nextSignals => {
+      if (controller.signal.aborted) return
+      setSignals(nextSignals)
+    })
 
     return () => controller.abort()
   }, [activity, canonicalContext.country, canonicalContext.role, props.countryLabel, refreshKey, selectedMarket, selectedProduct])

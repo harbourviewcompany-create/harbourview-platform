@@ -159,7 +159,8 @@ describe('mobile marketplace listing media', () => {
       expect(media.badgeLabel).toBe('Representative image')
       expect(media.src).toContain('/storage/v1/object/public/marketplace-item-public/representative/')
       expect(media.altText.length).toBeGreaterThan(10)
-      expect(media.fallbackSrc).toBe(media.src)
+      expect(media.fallbackSrc).toMatch(/^\/marketplace\/images\/.+\.webp$/)
+      expect(media.fallbackSrc).not.toBe(media.src)
     }
   })
 

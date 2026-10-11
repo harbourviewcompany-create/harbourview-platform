@@ -116,7 +116,7 @@ export const AssistantPage = React.memo(function AssistantPage({
   }
 
   return (
-    <div className="ast-root">
+    <div className="cc-page ast-root">
       <style>{CSS}</style>
 
       {/* Header */}

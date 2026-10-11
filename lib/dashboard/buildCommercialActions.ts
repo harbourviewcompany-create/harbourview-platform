@@ -10,5 +10,6 @@ export function buildCommercialNextActions(signals: BridgeSignal[], listings: Br
     detail: `${follow.reason} · from intel “${follow.signalTitle.slice(0, 48)}”`,
     href: commandHref('marketplace', { marketView: follow.listingView }),
     tone: 'gold' as const,
+    kind: 'opportunity' as const,
   }))
 }

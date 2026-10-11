@@ -253,11 +253,9 @@
   max-width: 100%;
 }
 
-.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card {
-  content-visibility: auto;
-  contain-intrinsic-size: 360px;
-}
-
+/* Do not use content-visibility on interactive marketplace cards. Chromium can
+ * retain intrinsic geometry across filtering/tab transitions, making cards from
+ * different grid rows report overlapping positions and visibly bleed. */
 .hvm2-root[data-active-destination="marketplace"] .cc-mkt-rail-track {
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;

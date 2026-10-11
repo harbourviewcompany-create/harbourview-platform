@@ -52,10 +52,11 @@ export function CountrySearchOverlay({
   const highlightedCountry = matches[highlightedIndex]
   const showResults = hasQuery && isFocused
 
-  const authReturnHref = selectedCountryForReturn
-    ? `/dashboard?country=${encodeURIComponent(selectedCountryForReturn)}&page=briefing&section=overview`
+  const selectedCountryForAuth = selectedCountryForReturn ?? selectedCountryIso2 ?? null
+  const authReturnHref = selectedCountryForAuth
+    ? `/dashboard?country=${encodeURIComponent(selectedCountryForAuth)}&page=briefing&section=overview`
     : '/'
-  const createOrgHref = `/organization/new?country=${encodeURIComponent((selectedCountryForReturn ?? '').split('-')[0])}&returnTo=${encodeURIComponent(authReturnHref)}`
+  const createOrgHref = `/organization/new?country=${encodeURIComponent((selectedCountryForAuth ?? '').split('-')[0])}&returnTo=${encodeURIComponent(authReturnHref)}`
   const joinOrgHref = `/organization/join?returnTo=${encodeURIComponent(authReturnHref)}`
 
   useEffect(() => {
@@ -154,13 +155,21 @@ export function CountrySearchOverlay({
       }}
     >
       {selectedCountryIso2 && collapsed ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 12px' }}>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: '9px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(212,173,58,0.82)' }}>Market routing</p>
-            <p style={{ margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', color: 'rgba(255,255,255,0.78)' }}>{countryOptions.find((country) => country.iso2 === selectedCountryIso2)?.name ?? selectedCountryIso2}</p>
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 12px' }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: '9px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(212,173,58,0.82)' }}>Market routing</p>
+              <p style={{ margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', color: 'rgba(255,255,255,0.78)' }}>{countryOptions.find((country) => country.iso2 === selectedCountryIso2)?.name ?? selectedCountryIso2}</p>
+            </div>
+            <button type="button" onClick={() => setCollapsed(false)} style={{ flexShrink: 0, border: '1px solid rgba(212,173,58,0.28)', borderRadius: 999, padding: '7px 10px', color: 'rgba(212,173,58,0.9)', background: 'rgba(255,255,255,0.03)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Change</button>
           </div>
-          <button type="button" onClick={() => setCollapsed(false)} style={{ flexShrink: 0, border: '1px solid rgba(212,173,58,0.28)', borderRadius: 999, padding: '7px 10px', color: 'rgba(212,173,58,0.9)', background: 'rgba(255,255,255,0.03)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Change</button>
-        </div>
+          {signedIn === true ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid rgba(212,173,58,0.12)', padding: '6px 12px 8px', fontSize: '9.5px' }}>
+              <Link href={createOrgHref} style={{ color: 'rgba(212,173,58,0.88)', fontWeight: 600 }}>Create organization</Link>
+              <Link href={joinOrgHref} style={{ color: 'rgba(212,173,58,0.76)', fontWeight: 600 }}>Join organization</Link>
+            </div>
+          ) : null}
+        </>
       ) : null}
       {(!selectedCountryIso2 || !collapsed) ? (
       <>

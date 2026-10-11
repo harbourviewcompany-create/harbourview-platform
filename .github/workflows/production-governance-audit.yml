@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      administration: read
+      actions: read
     env:
       GITHUB_TOKEN: ${{ github.token }}
       PYTHONUNBUFFERED: '1'

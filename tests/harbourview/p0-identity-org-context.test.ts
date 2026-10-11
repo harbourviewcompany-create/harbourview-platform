@@ -98,18 +98,20 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(activeWorkspace).toContain(".eq('id', requestedWorkspaceId)")
     expect(activeWorkspace).toContain(".eq('status', 'active')")
     expect(dashboardPage).toContain(".from('workspaces')")
-    expect(dashboardPage).toContain(".eq('id', activeWorkspaceId)")
-    expect(dashboardPage).toContain('Boolean(membership && workspace)')
+    expect(dashboardPage).toContain("if (!hasOrg && createdWorkspaceId)")
+    expect(dashboardPage).toContain(".eq('workspace_id', createdWorkspaceId)")
+    expect(dashboardPage).toContain(".eq('id', createdWorkspaceId)")
+    expect(dashboardPage).toContain("activeWorkspaceId = createdWorkspaceId")
     for (const source of [watchRules, watchItems, licenceSubmit]) {
       expect(source).toContain('resolveActiveWorkspace')
       expect(source).not.toContain(".select('workspace_id')\n    .eq('user_id', userId)\n    .limit(1)")
     }
   })
 
-  it('makes role optional and represents All roles as null/empty rather than a fabricated role', () => {
+  it('requires a globe role before public market routing while preserving nullable All roles inside Command', () => {
     const marketEnter = globeReducer.slice(globeReducer.indexOf("case 'MARKET_ENTER':"), globeReducer.indexOf("case 'COUNTRY_CLEAR':"))
-    expect(marketEnter).toContain("step: 'routing'")
-    expect(marketEnter).not.toContain("step: 'role'")
+    expect(marketEnter).toContain("step: 'role'")
+    expect(marketEnter).not.toContain("step: 'routing'")
     expect(globeResolver).toContain("href: appendGlobeQuery('/dashboard', input)")
     expect(mobileCommand).toContain('<option value="">All roles</option>')
     expect(mobileCommand).toContain('{ role_id: value || null }')
@@ -121,7 +123,7 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     // here is that the saved country, role and workspace are all restored, and
     // that intent survives a column being added to the same select (as
     // command_last_viewed_at was, per docs/COMMAND_SURFACE_SPEC.md 4.1).
-    const prefsSelect = dashboardPage.match(/\.from\('user_dashboard_preferences'\)\s*\n\s*\.select\('([^']+)'\)/)
+    const prefsSelect = dashboardPage.match(/(?:\.schema\('public'\)\s*\n\s*)?\.from\('user_dashboard_preferences'\)\s*\n\s*\.select\('([^']+)'\)/)
     expect(prefsSelect).not.toBeNull()
     const selectedPrefColumns = (prefsSelect?.[1] ?? '').split(',').map(column => column.trim())
     expect(selectedPrefColumns).toEqual(expect.arrayContaining(['country_iso2', 'role_id', 'active_workspace_id']))

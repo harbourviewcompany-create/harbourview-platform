@@ -92,6 +92,11 @@ jobs:
             supabase/migrations/00000000000000_p0_org_onboarding_baseline.sql
           cp /tmp/harbourview-production-migrations/20260814122000_p0_identity_org_context.sql \
             supabase/migrations/20260814122000_p0_identity_org_context.sql
+          # The live create route now calls api.create_workspace_for_user.
+          # Include the real atomic-onboarding migration so this isolated fixture
+          # exercises the production RPC instead of failing on a missing function.
+          cp /tmp/harbourview-production-migrations/20260920154810_create_atomic_org_onboarding.sql \
+            supabase/migrations/20260920154810_create_atomic_org_onboarding.sql
           : > supabase/seed.sql
 
       - name: Start isolated local Supabase

@@ -23,12 +23,12 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          LIMIT: ${{ inputs.limit || '10' }}
         run: |
           set -euo pipefail
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          limit="${{ inputs.limit || '10' }}"
           response="$(
-            curl --fail-with-body --silent --show-error --max-time 540               -X POST               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"               -H "Content-Type: application/json"               "$SUPABASE_URL/functions/v1/full-depth-authority-capture?limit=$LIMIT"
+            curl --fail-with-body --silent --show-error --max-time 540               -X POST               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"               -H "Content-Type: application/json"               "$SUPABASE_URL/functions/v1/full-depth-authority-capture?limit=$limit"
           )"
           printf '%s\n' "$response"

@@ -15,7 +15,7 @@ const manualPreviewWorkflow = fs.readFileSync('.github/workflows/deploy-preview.
 
 const expectedRules: Record<string, boolean> = {
   '**': false,
-  main: true,
+  main: false,
   'preview/*': true,
 }
 
@@ -40,12 +40,12 @@ function deploymentEnabledFor(branch: string): boolean {
 }
 
 describe('Vercel deployment admission policy', () => {
-  it('is fail-closed and allows only main plus one-level preview/* branches', () => {
+  it('is fail-closed and allows only explicit one-level preview/* branches', () => {
     expect(config.git?.deploymentEnabled).toEqual(expectedRules)
   })
 
   it.each([
-    ['main', true],
+    ['main', false],
     ['preview/manual-release-candidate', true],
     ['sync/intel-main-3', false],
     ['dependabot/npm_and_yarn/next-16.3.3', false],
@@ -57,6 +57,10 @@ describe('Vercel deployment admission policy', () => {
     ['preview/team/nested-branch', false],
   ])('resolves %s to deploymentEnabled=%s', (branch, expected) => {
     expect(deploymentEnabledFor(branch)).toBe(expected)
+  })
+
+  it('keeps main disabled so production can only be created by the verified promotion workflow', () => {
+    expect(deploymentEnabledFor('main')).toBe(false)
   })
 
   it('preserves the explicit manual preview workflow contract', () => {

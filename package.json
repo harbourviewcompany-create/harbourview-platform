@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "private": true,
   "engines": {
-    "node": "24.x"
+    "node": ">=22 <25"
   },
   "scripts": {
     "prebuild": "node scripts/generate-natural-earth-countries.mjs",
@@ -112,7 +112,7 @@
     "wrangler": "^4.136.1"
   },
   "overrides": {
-    "undici": "7.29.0",
+    "undici": "7.30.0",
     "browserslist": "^4.28.7",
     "qs": "^6.16.0",
     "fflate": "^0.8.3"

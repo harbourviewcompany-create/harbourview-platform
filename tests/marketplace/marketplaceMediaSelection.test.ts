@@ -3,6 +3,7 @@ import type { PublicMarketplaceImageDTO } from '@/lib/marketplace/images/dto'
 import { pickMarketplaceCardImage } from '@/lib/marketplace/images/public-query'
 import { isPublicRenderableMarketplaceImage } from '@/lib/marketplace/images/rules'
 import { resolveListingMedia } from '@/lib/dashboard/buildDashboardCommandSources'
+import { getRepresentativeMarketplaceMedia } from '@/lib/dashboard/marketplaceMediaProjection'
 
 function image(overrides: Partial<PublicMarketplaceImageDTO> = {}): PublicMarketplaceImageDTO {
   return {
@@ -135,6 +136,15 @@ describe('marketplace media selection', () => {
     expect(media.badgeLabel).toBe('Harbourview illustrative image')
     expect(media.src).toBe('/marketplace/images/extraction-equipment.webp')
     expect(media.caption).toContain('not item evidence')
+  })
+
+  it('keeps a local category fallback when representative storage is unavailable', () => {
+    const cannabis = getRepresentativeMarketplaceMedia('cannabis', 'listing-x', 'Bulk flower lot', 'cannabis')
+    const equipment = getRepresentativeMarketplaceMedia('equipment', 'listing-y', 'Extraction system', 'equipment')
+
+    expect(cannabis.src).toContain('zvxdgdkukjrrwamdpqrg.supabase.co')
+    expect(cannabis.fallbackSrc).toBe('/marketplace/images/product-inventory.webp')
+    expect(equipment.fallbackSrc).toBe('/marketplace/images/extraction-equipment.webp')
   })
 
   it('rejects unapproved, unknown-rights, private-evidence and URL-less rows at the trust rule', () => {

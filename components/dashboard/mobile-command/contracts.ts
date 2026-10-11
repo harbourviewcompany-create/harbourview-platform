@@ -80,14 +80,12 @@ export type NextAction = {
   href: string
   tone: Tone
   /**
-   * `tool` marks an always-available launcher (corridor planner, landed cost)
-   * as opposed to something that actually requires the operator's attention.
-   * The Command overview's priority slots admit only non-tool actions, so a
-   * generic launcher can no longer outrank a real exception — see
-   * docs/COMMAND_SURFACE_SPEC.md 4.2. Undefined is treated as attention, which
-   * keeps every existing action's behaviour unchanged.
+   * Classification for Command pulse semantics. Undefined remains a true
+   * operator-attention item for backwards compatibility. Tool launchers,
+   * intelligence previews and matched opportunities are useful work surfaces,
+   * but do not inflate the exception/attention count.
    */
-  kind?: 'attention' | 'tool'
+  kind?: 'attention' | 'tool' | 'intel' | 'opportunity'
 }
 
 export const MARKET_TABS: Array<{ id: MarketView; label: string }> = [

@@ -116,8 +116,12 @@ export default function CommandOverviewOperator({
       || a.index - b.index)
     .slice(0, 2)
   const opportunityRows = opportunities.slice(0, 2)
-  // Show enough slots that org onboarding cannot monopolize the surface.
-  const attentionRows = attentionItems.slice(0, 4)
+  const organizationRows = attentionItems
+    .filter(item => item.id === 'organization-create' || item.id === 'organization-join')
+    .slice(0, 2)
+  const attentionRows = attentionItems
+    .filter(item => item.id !== 'organization-create' && item.id !== 'organization-join')
+    .slice(0, 2)
   const deltaSentence = delta ? formatDeltaSentence(delta) : ''
 
   return (
@@ -194,7 +198,18 @@ export default function CommandOverviewOperator({
         </p>
       ) : null}
 
-      <section className="hvm-op-group" aria-labelledby="hvm-op-attention-heading">
+      {organizationRows.length > 0 ? (
+        <div className="hvm-op-org-actions" aria-label="Organization onboarding">
+          {organizationRows.map(item => (
+            <a key={item.id} href={item.href} className="hvm-op-org-action">
+              <span>{item.label}</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+
+      <section className="hvm-op-group hvm-op-attention-group" aria-labelledby="hvm-op-attention-heading">
         <div className="hvm-op-group-heading">
           <div>
             <span className="hvm-op-eyebrow">Priority</span>
@@ -225,7 +240,7 @@ export default function CommandOverviewOperator({
       </section>
 
       {watchRuleHits.length > 0 ? (
-        <section className="hvm-op-group" aria-labelledby="hvm-op-watch-heading">
+        <section className="hvm-op-group hvm-op-watch-group" aria-labelledby="hvm-op-watch-heading">
           <div className="hvm-op-group-heading">
             <div>
               <span className="hvm-op-eyebrow">Your watch rules</span>
@@ -253,7 +268,7 @@ export default function CommandOverviewOperator({
       ) : null}
 
       {signalRows.length > 0 ? (
-        <section className="hvm-op-group" aria-labelledby="hvm-op-changes-heading">
+        <section className="hvm-op-group hvm-op-intelligence-group" aria-labelledby="hvm-op-changes-heading">
           <div className="hvm-op-group-heading">
             <div>
               <span className="hvm-op-eyebrow">Contextual changes</span>
@@ -279,6 +294,7 @@ export default function CommandOverviewOperator({
         </section>
       ) : (
         <CompactZeroState
+          className="hvm-op-intelligence-group"
           label="Recent intelligence"
           message="No material updates in this context"
           onOpen={onOpenIntel}
