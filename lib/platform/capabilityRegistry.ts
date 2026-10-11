@@ -233,7 +233,7 @@ export const capabilityRegistry: CapabilityRegistryEntry[] = [
     requiredCapability: 'Admin-only export workspace for buyer intelligence, direct contacts, Canadian suppliers, RFQs, product matching, deal economics and execution tracking.',
     routes: ['/intelligence/cannabis-export'],
     visibility: 'private',
-    criticality: 'important',
+    criticality: 'launch-critical',
     status: 'admin-backed',
     publicStatusLabel: 'Private operator workspace',
     falseGoRisk: 'Commercial counterparty identities, direct contact routes, supplier quotes or negotiation limits must never leak to public surfaces.',
