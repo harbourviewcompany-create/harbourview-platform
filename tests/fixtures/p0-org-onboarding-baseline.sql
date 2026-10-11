@@ -66,6 +66,8 @@ create table if not exists public.hv_passports (
   org_id uuid primary key references public.workspaces(id) on delete cascade,
   verification_level text,
   completeness_band text,
+  public_snapshot jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
   recall_exposure_flag boolean not null default false,
   created_at timestamptz not null default now()
 );

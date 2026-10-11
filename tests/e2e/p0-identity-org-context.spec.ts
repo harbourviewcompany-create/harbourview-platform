@@ -157,9 +157,8 @@ test.describe.serial('authenticated organization onboarding', () => {
       await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible({ timeout: 30_000 })
 
       const createAction = page.getByRole('link', { name: /Create an organization profile/i })
-      const joinAction = page.getByRole('link', { name: /Join an organization/i })
       await expect(createAction).toBeVisible()
-      await expect(joinAction).toBeVisible()
+      // Join is available through organization context, not a second priority CTA.
 
       await createAction.click()
       await page.waitForURL(url => url.pathname === '/organization/new', { timeout: 20_000 })
@@ -168,8 +167,8 @@ test.describe.serial('authenticated organization onboarding', () => {
       expect(new URL(page.url()).searchParams.get('returnTo')).toBe(COMMAND_RETURN)
 
       const legalName = `Harbourview E2E ${Date.now()}`
-      await page.getByText('Legal name', { exact: true }).locator('..').getByRole('textbox').fill(legalName)
-      await expect(page.getByText('Country code', { exact: true }).locator('..').getByRole('textbox')).toHaveValue('MX')
+      await page.getByRole('textbox', { name: /Legal name/ }).fill(legalName)
+      await expect(page.getByRole('combobox', { name: /Country/ })).toHaveValue('MX')
       await page.getByRole('button', { name: 'Create organization', exact: true }).click()
 
       await page.waitForURL(url => `${url.pathname}${url.search}` === COMMAND_RETURN, { timeout: 30_000 })
@@ -220,7 +219,7 @@ test.describe.serial('authenticated organization onboarding', () => {
         const url = new URL(page.url())
         expect(url.searchParams.get('country')).toBe('CA')
         expect(url.searchParams.get('returnTo')).toBe('/dashboard?country=CA&page=briefing&section=overview')
-        await expect(page.getByRole('heading', { name: 'Create organization', exact: true })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Create your operating organization', exact: true })).toBeVisible()
         await assertNoMarketingShell(page)
         await page.screenshot({ path: path.join(evidenceRoot, viewport.file), fullPage: false, animations: 'disabled' })
       } finally {
@@ -275,12 +274,13 @@ test.describe.serial('authenticated organization onboarding', () => {
 
       const tokenInput = page.getByPlaceholder('Paste invitation token')
       await tokenInput.fill('f'.repeat(64))
-      await page.getByRole('button', { name: 'Join organization', exact: true }).click()
+      // Invalid preview must fail before an acceptance write can be submitted.
+      await expect(page.getByRole('button', { name: 'Accept invitation', exact: true })).toBeDisabled()
       await expect(page.getByRole('alert').filter({ hasText: 'could not be found' })).toContainText('could not be found')
 
       await tokenInput.fill(INVITE_TOKEN)
-      await page.getByRole('button', { name: 'Join organization', exact: true }).click()
-      await expect(page.getByRole('status')).toContainText('Invitation accepted')
+      await page.getByRole('button', { name: 'Accept invitation', exact: true }).click()
+      await expect(page.getByRole('status')).toContainText('Organization joined')
       await page.waitForURL(url => `${url.pathname}${url.search}` === COMMAND_RETURN, { timeout: 30_000 })
 
       const orgContext = await readOrgContext(page)

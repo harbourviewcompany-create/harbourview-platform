@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const read = (path: string) => readFileSync(path, 'utf8')
 
 const migration = read('supabase/migrations/20260814122000_p0_identity_org_context.sql')
+const orgCreateTransaction = read('supabase/migrations/20260920154810_create_atomic_org_onboarding.sql')
 const orgCreate = read('app/api/org/create/route.ts')
 const orgMe = read('app/api/org/me/route.ts')
 const preferences = read('app/api/dashboard/preferences/route.ts')
@@ -72,13 +73,25 @@ describe('Harbourview P0 identity, organization, membership and operating contex
   it('removes the one-organization API assumption and returns deterministic memberships', () => {
     expect(orgCreate).not.toContain('USER_ALREADY_HAS_ORG')
     expect(orgCreate).toContain('create_workspace_for_user')
-    expect(orgCreate).toContain('active_workspace_id')
+    // The route delegates context binding to the atomic creation transaction.
+    expect(orgCreate).toContain('p_user_id: user.id')
+    expect(orgCreateTransaction).toContain('insert into public.user_dashboard_preferences')
+    expect(orgCreateTransaction).toContain('active_workspace_id = excluded.active_workspace_id')
+    expect(orgCreateTransaction).toContain("'active_workspace_id', v_workspace.id")
     expect(orgCreate).not.toContain('MEMBERSHIP_FAILED')
     expect(orgMe).toContain('memberships')
     expect(orgMe).toContain('.sort((a, b) =>')
     expect(orgMe).toContain('active_mode: activeMembership ? "organization" : "personal"')
     expect(orgMe).toContain('stale_active_workspace_id')
     expect(orgMe).not.toContain('.eq("user_id", user.id).eq("status", "active").single()')
+  })
+
+  it('replays the atomic creation transaction against its complete isolated passport fixture', () => {
+    const workflow = read('.github/workflows/p0-org-onboarding-regression-verify.yml')
+    const fixture = read('tests/fixtures/p0-org-onboarding-baseline.sql')
+    expect(workflow).toContain('cp /tmp/harbourview-production-migrations/20260920154810_create_atomic_org_onboarding.sql')
+    expect(fixture).toContain("public_snapshot jsonb not null default '{}'::jsonb")
+    expect(fixture).toContain('updated_at timestamptz not null default now()')
   })
 
   it('validates active workspace selection against active membership and active workspace status', () => {
@@ -143,11 +156,12 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(orgCreateForm).toContain("fetch('/api/org/create'")
   })
 
-  it('routes the Command organization attention state into explicit create and join onboarding choices', () => {
+  it('keeps a single Command onboarding priority and exposes create and join in organization context', () => {
     expect(mobileCommandModel).toContain("id: 'organization-create'")
-    expect(mobileCommandModel).toContain("id: 'organization-join'")
+    expect(mobileCommandModel).not.toContain("id: 'organization-join'")
+    expect(orgContext).toContain('Join organization')
     expect(mobileCommandModel).toContain("href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`")
-    expect(mobileCommandModel).toContain("href: `/organization/join?returnTo=${returnParam}`")
+    expect(orgContext).toContain('/organization/join?returnTo=${encodedReturnTo}')
     expect(mobileCommandModel).toContain("if (!params.has('section')) params.set('section', model.activeSection)")
   })
 
@@ -172,7 +186,8 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(orgJoinForm).toContain('INVITATION_EMAIL_MISMATCH')
     expect(orgJoinForm).toContain('INVITATION_EXPIRED')
     expect(orgJoinForm).toContain("safeInternalPath(searchParams.get('returnTo'))")
-    expect(orgJoinForm).toContain('router.replace(returnTo)')
+    // A full document navigation reloads the server's newly active workspace.
+    expect(orgJoinForm).toContain('window.location.replace(returnTo)')
     expect(orgJoinForm).toContain('<Link href={returnTo}')
   })
 })
