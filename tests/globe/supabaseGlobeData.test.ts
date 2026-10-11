@@ -35,14 +35,16 @@ const countryRow = {
 }
 
 const fromMock = vi.fn()
+const schemaMock = vi.fn((_schema: string) => ({ from: fromMock }))
 
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({ from: fromMock }),
+  createClient: () => ({ from: fromMock, schema: schemaMock }),
 }))
 
 describe('getGlobeLiveData', () => {
   beforeEach(() => {
     fromMock.mockReset()
+    schemaMock.mockClear()
   })
 
   it('reads country_iso2 directly off the row instead of re-resolving client-side', async () => {
@@ -144,6 +146,16 @@ describe('getGlobeLiveData', () => {
 })
 
 describe('getGlobeSignals', () => {
+  it('reads the signals overlay from the RLS-governed public schema', async () => {
+    fromMock.mockImplementation(() => makeQueryBuilder({ data: [], error: null }))
+    const { getGlobeSignals } = await import('@/lib/globe/supabaseGlobeData')
+
+    await getGlobeSignals()
+
+    expect(schemaMock).toHaveBeenCalledWith('public')
+    expect(fromMock).toHaveBeenCalledWith('signals')
+  })
+
   it('throws on query failure so callers can decide how to degrade', async () => {
     fromMock.mockImplementation(() => makeQueryBuilder({ data: null, error: { message: 'boom' } }))
     const { getGlobeSignals } = await import('@/lib/globe/supabaseGlobeData')
