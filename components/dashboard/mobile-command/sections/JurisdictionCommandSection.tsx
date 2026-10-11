@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import type { SectionId } from '../contracts'
+import { formatMarketPrice, getMarketEconomics, isMarketPriceStale } from '@/data/harbourview/market-economics'
 import {
   humanizeJurisdictionStatus,
   normalizeJurisdictionAccessState,
@@ -104,6 +105,11 @@ export function JurisdictionSection(props: Props) {
       role: params.get('role'),
     }
   }, [props.commandHref])
+
+  const reviewedEconomics = useMemo(
+    () => getMarketEconomics(canonicalContext.country),
+    [canonicalContext.country],
+  )
 
   const requestedActivity = searchParams.get('activity') as JurisdictionActivity | null
   const activity = ACTIVITIES.some(item => item.id === requestedActivity) ? requestedActivity! : 'market-entry'
@@ -427,8 +433,53 @@ export function JurisdictionSection(props: Props) {
             </div>
           </div>
 
-          {data && data.marketMetrics.length === 0 && data.tradeFlows.length === 0 ? (
-            <div className={styles.empty}>No structured market metrics or trade-flow records are loaded for this jurisdiction. Harbourview does not substitute unsupported estimates.</div>
+          {reviewedEconomics ? (
+            <div className={styles.metricList} aria-label="Reviewed commercial economics">
+              {reviewedEconomics.upstreamPrice ? (
+                <article className={styles.metric}>
+                  <div className={styles.rowBetween}>
+                    <strong>Reviewed upstream price signal</strong>
+                    <span className={styles.status} data-state={isMarketPriceStale(reviewedEconomics.upstreamPrice) ? 'conditional' : 'available'}>{formatMarketPrice(reviewedEconomics.upstreamPrice)}</span>
+                  </div>
+                  <p>{reviewedEconomics.upstreamPrice.basis}</p>
+                  <div className={styles.smallMeta}>
+                    <span>{isMarketPriceStale(reviewedEconomics.upstreamPrice) ? `Refresh due · ${reviewedEconomics.upstreamPrice.asOf}` : `As of ${reviewedEconomics.upstreamPrice.asOf}`}</span>
+                    <span>{reviewedEconomics.upstreamPrice.sourceLabel}</span>
+                  </div>
+                </article>
+              ) : null}
+              {reviewedEconomics.downstreamPrice ? (
+                <article className={styles.metric}>
+                  <div className={styles.rowBetween}>
+                    <strong>Reviewed downstream comparator</strong>
+                    <span className={styles.status} data-state={isMarketPriceStale(reviewedEconomics.downstreamPrice) ? 'conditional' : 'available'}>{formatMarketPrice(reviewedEconomics.downstreamPrice)}</span>
+                  </div>
+                  <p>{reviewedEconomics.downstreamPrice.basis}</p>
+                  <div className={styles.smallMeta}>
+                    <span>{isMarketPriceStale(reviewedEconomics.downstreamPrice) ? `Refresh due · ${reviewedEconomics.downstreamPrice.asOf}` : `As of ${reviewedEconomics.downstreamPrice.asOf}`}</span>
+                    <span>{reviewedEconomics.downstreamPrice.sourceLabel}</span>
+                  </div>
+                </article>
+              ) : null}
+              {reviewedEconomics.importContext ? (
+                <article className={styles.metric}>
+                  <div className={styles.rowBetween}>
+                    <strong>Reviewed import context</strong>
+                    <span className={styles.status} data-state="available">{reviewedEconomics.importContext.totalKg.toLocaleString()} kg</span>
+                  </div>
+                  <div className={styles.smallMeta}>
+                    <span>{reviewedEconomics.importContext.period}</span>
+                    {reviewedEconomics.importContext.canadianKg != null && reviewedEconomics.importContext.totalKg > 0 ? <span>Canada share {Math.round((reviewedEconomics.importContext.canadianKg / reviewedEconomics.importContext.totalKg) * 100)}%</span> : null}
+                    <span>{reviewedEconomics.importContext.sourceLabel} · updated {reviewedEconomics.importContext.sourceUpdatedAt}</span>
+                    <span>{humanizeJurisdictionStatus(reviewedEconomics.importContext.confidence)} confidence</span>
+                  </div>
+                </article>
+              ) : null}
+            </div>
+          ) : null}
+
+          {data && data.marketMetrics.length === 0 && data.tradeFlows.length === 0 && !reviewedEconomics ? (
+            <div className={styles.empty}>No structured market metrics, trade-flow records or reviewed economics snapshot is loaded for this jurisdiction. Harbourview does not substitute unsupported estimates.</div>
           ) : null}
           <div className={styles.metricList}>
             {data?.marketMetrics.slice(0, 5).map((metric, index) => (
@@ -550,6 +601,44 @@ export function JurisdictionSection(props: Props) {
                   <span className={styles.status} data-state={normalizeJurisdictionAccessState(item.marketAccessStatus)}>{item.marketAccessStatus ? humanizeJurisdictionStatus(item.marketAccessStatus) : 'Under review'}</span>
                 </div>
                 <div className={styles.smallMeta}><span>Opportunity score {item.opportunityScore}</span><span>{item.dataCompleteness ? `Coverage ${humanizeJurisdictionStatus(item.dataCompleteness)}` : 'Coverage under review'}</span></div>
+                {item.economics ? (
+                  <>
+                    {item.economics.upstreamPrice ? (
+                      <>
+                        <div className={styles.smallMeta}>
+                          <span>Upstream price {item.economics.upstreamPrice.displayValue} · {item.economics.upstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.upstreamPrice.asOf}</span>
+                          <span>{humanizeJurisdictionStatus(item.economics.upstreamPrice.confidence)} confidence</span>
+                        </div>
+                        <div className={styles.smallMeta}>
+                          <span>{item.economics.upstreamPrice.basis}</span>
+                          <span>{item.economics.upstreamPrice.sourceLabel}</span>
+                        </div>
+                      </>
+                    ) : null}
+                    {item.economics.downstreamPrice ? (
+                      <>
+                        <div className={styles.smallMeta}>
+                          <span>Downstream comparator {item.economics.downstreamPrice.displayValue} · {item.economics.downstreamPrice.stale ? 'Refresh due · ' : ''}{item.economics.downstreamPrice.asOf}</span>
+                          <span>{humanizeJurisdictionStatus(item.economics.downstreamPrice.confidence)} confidence</span>
+                        </div>
+                        <div className={styles.smallMeta}>
+                          <span>{item.economics.downstreamPrice.basis}</span>
+                          <span>{item.economics.downstreamPrice.sourceLabel}</span>
+                        </div>
+                      </>
+                    ) : null}
+                    {item.economics.importContext ? (
+                      <div className={styles.smallMeta}>
+                        <span>Imports {item.economics.importContext.totalKg.toLocaleString()} kg · {item.economics.importContext.period}</span>
+                        {item.economics.importContext.canadianKg != null && item.economics.importContext.totalKg > 0 ? (
+                          <span>Canada share {Math.round((item.economics.importContext.canadianKg / item.economics.importContext.totalKg) * 100)}%</span>
+                        ) : null}
+                        <span>{item.economics.importContext.sourceLabel} · updated {item.economics.importContext.sourceUpdatedAt}</span>
+                        <span>{humanizeJurisdictionStatus(item.economics.importContext.confidence)} confidence</span>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
               </article>
             ))}
           </div>
