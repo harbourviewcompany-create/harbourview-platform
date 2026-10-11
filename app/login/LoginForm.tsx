@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PasswordResetButton from './PasswordResetButton'
+import { friendlyAuthError } from '@/lib/auth/friendlyAuthError'
 
 const inputCls =
   'w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#F5F1E8] placeholder-[#F5F1E8]/25 outline-none transition-colors focus:border-[#C6A55A]/50 focus:bg-white/[0.06]'
@@ -14,26 +15,6 @@ const SIGNUP_BENEFITS = [
   'Country access overview',
   'Education hub access',
 ]
-
-function friendlyAuthError(message: string) {
-  const lower = message.toLowerCase()
-  if (lower.includes('already registered') || lower.includes('already exists')) {
-    return 'An account already exists for this email. Try signing in instead.'
-  }
-  if (lower.includes('invalid login credentials')) {
-    return 'That email or password was not recognized.'
-  }
-  if (lower.includes('email not confirmed')) {
-    return 'Confirm your email before signing in — check your inbox for the confirmation link.'
-  }
-  if (lower.includes('password should be at least') || lower.includes('at least 8')) {
-    return 'Password must be at least 8 characters.'
-  }
-  if (lower.includes('rate limit')) {
-    return 'Too many attempts. Please wait a moment and try again.'
-  }
-  return 'We could not complete that authentication request. Please try again.'
-}
 
 export default function LoginForm({
   error,
@@ -81,7 +62,7 @@ export default function LoginForm({
         },
       })
       if (err) {
-        setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
+        setFeedback({ type: 'error', text: friendlyAuthError(err) })
       } else {
         setFeedback({ type: 'success', text: 'A new confirmation email has been sent. Check your inbox and spam folder.' })
       }
@@ -103,7 +84,7 @@ export default function LoginForm({
       if (mode === 'signin') {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password })
         if (err) {
-          setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
+          setFeedback({ type: 'error', text: friendlyAuthError(err) })
         } else {
           router.push(next ?? '/dashboard')
           router.refresh()
@@ -128,7 +109,7 @@ export default function LoginForm({
         }
       }
     } catch (err) {
-      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Something went wrong. Please try again.' })
+      setFeedback({ type: 'error', text: friendlyAuthError(err) })
     } finally {
       setLoading(false)
     }
