@@ -128,10 +128,30 @@ Deno.serve(async req => {
   const url = new URL(req.url);
   const limit = Math.max(1,Math.min(Number(url.searchParams.get("limit") ?? "8"),8));
   const worker = url.searchParams.get("worker") ?? crypto.randomUUID();
+  const body = await req.json().catch(() => ({}));
+  const requestedSourceIds = Array.isArray(body?.source_ids)
+    ? [...new Set(body.source_ids.map((v: unknown) => String(v)))].slice(0, 8)
+    : [];
 
-  const { data:sources,error } = await supabase.rpc("acquire_recovery_primary_targets",{
-    p_limit:limit,p_worker_id:worker
-  });
+  let sources: any[] | null = null;
+  let error: any = null;
+
+  if (requestedSourceIds.length > 0) {
+    const targeted = await supabase.from("source_registry")
+      .select("id,source_url,source_name")
+      .in("id", requestedSourceIds)
+      .eq("is_active", true)
+      .eq("crawl_allowed", true);
+    sources = targeted.data;
+    error = targeted.error;
+  } else {
+    const acquired = await supabase.rpc("acquire_recovery_primary_targets",{
+      p_limit:limit,p_worker_id:worker
+    });
+    sources = acquired.data;
+    error = acquired.error;
+  }
+
   if (error) return Response.json({error:"acquire_failed",detail:error.message},{status:500});
 
   const results = await Promise.all((sources ?? []).map(fetchOne));
