@@ -91,7 +91,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await withTimeout(() => supabase.auth.getUser())
     if (!user) return NextResponse.json({ ok: false }, { status: 401 })
 
     const body = await req.json() as Record<string, unknown>
