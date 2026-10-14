@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
-import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Global Cannabis Markets — Weekly Intelligence Briefings | Harbourview',
@@ -29,7 +28,7 @@ type Briefing = {
   market_maturity: string
   summary: string
   week_ending: string
-  signal_count: number
+  signal_count: number | null
 }
 
 const MATURITY_COLOR: Record<string, string> = {
@@ -51,36 +50,67 @@ const LEGAL_LABEL: Record<string, string> = {
   unknown:       'Unknown',
 }
 
-async function getAllBriefings(): Promise<Briefing[]> {
-  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (process.env.NEXT_PHASE === 'phase-production-build') return []
-  if (!url || !key) return []
+type BriefingLoadResult = {
+  briefings: Briefing[]
+  degraded: boolean
+}
 
-  const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const { data, error } = await svc
-    .from('jurisdiction_briefings')
-    .select('country_iso2, country_name, headline, legal_status, market_maturity, summary, week_ending, signal_count')
-    .eq('status', 'published')
-    .order('week_ending', { ascending: false })
-  guardIsrQuery(error, 'markets: jurisdiction_briefings')
+async function getAllBriefings(): Promise<BriefingLoadResult> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (process.env.NEXT_PHASE === 'phase-production-build') return { briefings: [], degraded: false }
+  if (!url || !key) return { briefings: [], degraded: true }
 
-  if (!data) return []
+  // This is a force-dynamic public route: a transient database outage must
+  // not convert the entire public markets page into HTTP 500.
+  try {
+    const svc = createClient(url, key, {
+      auth: { persistSession: false },
+      db: { schema: SUPABASE_DB_SCHEMA },
+    })
+    const { data, error } = await svc
+      .from('cc_jurisdiction_briefings')
+      .select('country_iso2,program_status,public_summary,market_dynamics,last_reviewed_date')
+      .eq('jurisdiction_type', 'country')
+      .eq('review_state', 'reviewed')
+      .order('last_reviewed_date', { ascending: false })
 
-  // One per country — latest week only
-  const seen = new Set<string>()
-  const result: Briefing[] = []
-  for (const row of data) {
-    if (!seen.has(row.country_iso2)) {
-      seen.add(row.country_iso2)
-      result.push(row as Briefing)
+    if (error) {
+      console.error('[markets] reviewed country briefings unavailable', { message: error.message })
+      return { briefings: [], degraded: true }
     }
+
+    // The current reviewed briefing contract has no maturity or signal count.
+    // Do not invent either metric or display draft/unreviewed records.
+    const seen = new Set<string>()
+    const briefings: Briefing[] = []
+    for (const row of data ?? []) {
+      if (!row.country_iso2 || seen.has(row.country_iso2)) continue
+      seen.add(row.country_iso2)
+      briefings.push({
+        country_iso2: row.country_iso2,
+        country_name: null,
+        headline: row.market_dynamics?.trim()
+          || row.public_summary?.trim()
+          || 'Reviewed briefing available.',
+        legal_status: row.program_status || 'Status under review',
+        market_maturity: 'unknown',
+        summary: row.public_summary || '',
+        week_ending: row.last_reviewed_date || '',
+        signal_count: null,
+      })
+    }
+    return { briefings, degraded: false }
+  } catch (error) {
+    console.error('[markets] reviewed country briefing fetch failed', {
+      message: error instanceof Error ? error.message : 'unknown database error',
+    })
+    return { briefings: [], degraded: true }
   }
-  return result
 }
 
 export default async function MarketsPage() {
-  const briefings = await getAllBriefings()
+  const { briefings, degraded } = await getAllBriefings()
   const briefingMap = new Map(briefings.map(b => [b.country_iso2, b]))
 
   const hasBriefings = briefings.length > 0
@@ -99,7 +129,9 @@ export default async function MarketsPage() {
             Weekly synthesised intelligence across {SYNTHESIS_MARKETS.length} active regulated markets.
             {hasBriefings
               ? ` Last updated ${briefings[0]?.week_ending ?? ''}.`
-              : ' Briefings are generated every Monday — check back soon.'}
+              : degraded
+                ? ' Live reviewed briefings are temporarily unavailable; you can still explore market destinations.'
+                : ' Reviewed briefings are being prepared — check back soon.'}
           </p>
           {hasBriefings && (
             <div className="mkt-legend">
@@ -130,7 +162,7 @@ export default async function MarketsPage() {
                 <div className="mkt-card-top">
                   <span className="mkt-flag">{flag}</span>
                   <span className="mkt-iso">{market.iso2}</span>
-                  {briefing && (
+                  {briefing && briefing.market_maturity !== 'unknown' && (
                     <span className="mkt-maturity" style={{ color: maturityColor, borderColor: `${maturityColor}40` }}>
                       {briefing.market_maturity}
                     </span>
@@ -146,12 +178,14 @@ export default async function MarketsPage() {
                     </div>
                     <p className="mkt-headline">{briefing.headline}</p>
                     <div className="mkt-footer">
-                      <span className="mkt-signals">{briefing.signal_count} signals</span>
-                      <span className="mkt-week">w/e {briefing.week_ending}</span>
+                      <span className="mkt-signals">{briefing.signal_count === null ? 'Reviewed briefing' : `${briefing.signal_count} signals`}</span>
+                      <span className="mkt-week">{briefing.week_ending ? `Reviewed ${briefing.week_ending}` : 'Review date pending'}</span>
                     </div>
                   </>
                 ) : (
-                  <p className="mkt-pending">Briefing pending — first synthesis runs Monday 03:00 UTC</p>
+                  <p className="mkt-pending">
+                    {degraded ? 'Live briefing temporarily unavailable.' : 'Reviewed briefing pending.'}
+                  </p>
                 )}
 
                 <div className="mkt-card-accent" style={{ background: maturityColor }} />
