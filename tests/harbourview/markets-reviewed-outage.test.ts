@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { isValidElement } from 'react'
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -13,6 +14,15 @@ vi.mock('@supabase/supabase-js', () => ({
 }))
 
 import MarketsPage from '@/app/markets/page'
+
+// Traverse only JSX children; serializing a React element directly includes
+// internal references and can throw on circular owner structures.
+function renderedText(node: unknown): string {
+  if (Array.isArray(node)) return node.map(renderedText).join(' ')
+  if (isValidElement<{ children?: unknown }>(node)) return renderedText(node.props.children)
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  return ''
+}
 
 function setupBriefingQuery() {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co')
@@ -43,7 +53,7 @@ describe('/markets reviewed briefing source and outage fallback', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const rendered = await MarketsPage()
-    expect(JSON.stringify(rendered)).toContain('Live reviewed briefings are temporarily unavailable')
+    expect(renderedText(rendered)).toContain('Live reviewed briefings are temporarily unavailable')
     expect(mocks.from).toHaveBeenCalledWith('cc_jurisdiction_briefings')
     expect(mocks.eq).toHaveBeenCalledWith('jurisdiction_type', 'country')
     expect(mocks.eq).toHaveBeenCalledWith('review_state', 'reviewed')
@@ -79,7 +89,7 @@ describe('/markets reviewed briefing source and outage fallback', () => {
     })
 
     const rendered = await MarketsPage()
-    const output = JSON.stringify(rendered)
+    const output = renderedText(rendered)
     expect(output).toContain('Reviewed Canadian market narrative')
     expect(output).toContain('Reviewed 2026-10-10')
     expect(output).toContain('Reviewed briefing')
@@ -92,7 +102,7 @@ describe('/markets reviewed briefing source and outage fallback', () => {
     mocks.order.mockResolvedValue({ data: [], error: null })
 
     const rendered = await MarketsPage()
-    expect(JSON.stringify(rendered)).toContain('Reviewed briefing pending')
-    expect(JSON.stringify(rendered)).not.toContain('temporarily unavailable')
+    expect(renderedText(rendered)).toContain('Reviewed briefing pending')
+    expect(renderedText(rendered)).not.toContain('temporarily unavailable')
   })
 })
