@@ -25,6 +25,7 @@ jobs:
       contents: read
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       GITHUB_TOKEN: ${{ github.token }}
       PYTHONUNBUFFERED: '1'
     steps:
@@ -33,10 +34,22 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - name: Require production database credential
-        if: env.SUPABASE_DB_URL == ''
+      - name: Resolve production database credential without exposing secrets
+        # Protected main only. Reuse the same database password secret as the
+        # existing migration reconciliation workflow if the URL secret is unset.
+        # Never place the password in GITHUB_ENV, logs, workflow outputs or PRs.
         run: |
-          echo "::error::SUPABASE_DB_URL is required for scheduled/manual production governance audits."
-          exit 1
+          set -euo pipefail
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            echo "Using configured production database URL credential."
+          elif [ -n "${PGPASSWORD:-}" ]; then
+            # Session-pooler host and role match auto-reconcile-migration-drift.yml.
+            # libpq reads PGPASSWORD directly; the DSN contains no password.
+            echo 'SUPABASE_DB_URL=postgresql://postgres.zvxdgdkukjrrwamdpqrg@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require' >> "${GITHUB_ENV}"
+            echo "Using existing protected database password with session pooler."
+          else
+            echo "::error::Set SUPABASE_DB_URL or SUPABASE_DB_PASSWORD for production governance."
+            exit 1
+          fi
       - name: Verify production governance and migration attribution
         run: bash scripts/verify-production-governance.sh
