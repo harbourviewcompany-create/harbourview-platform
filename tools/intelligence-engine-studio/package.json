@@ -33,7 +33,9 @@
   },
   "overrides": {
     "postcss": "$postcss",
-    "sharp": "^0.35.0",
+    "sharp": "0.35.5",
+    "source-map-js": "^1.2.2",
+    "@grpc/grpc-js": "^1.13.6",
     "fast-uri": "^3.1.6"
   },
   "devDependencies": {
