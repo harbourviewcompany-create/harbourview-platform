@@ -7,6 +7,8 @@ on:
     paths:
       - package.json
       - package-lock.json
+      - tools/intelligence-engine-studio/package.json
+      - tools/intelligence-engine-studio/package-lock.json
       - .github/workflows/dependency-security-audit.yml
   workflow_dispatch:
 
@@ -73,6 +75,18 @@ jobs:
             ].join('\n'),
           )
           console.log(summary)
+          // Report only public package names and advisory identifiers. Keep the
+          // complete machine-readable report in the existing CI artifact.
+          const outstanding = Object.entries(report.vulnerabilities ?? {})
+            .filter(([, detail]) => detail?.severity === 'high' || detail?.severity === 'critical')
+            .map(([name, detail]) => ({
+              name,
+              severity: detail.severity,
+              advisories: (detail.via ?? [])
+                .filter((advisory) => advisory && typeof advisory === 'object')
+                .map((advisory) => advisory.name ?? advisory.url ?? 'unknown'),
+            }))
+          console.log('Blocking dependency vulnerabilities:', JSON.stringify(outstanding))
           if (summary.critical > 0 || summary.high > 0) process.exitCode = 1
           NODE
 
