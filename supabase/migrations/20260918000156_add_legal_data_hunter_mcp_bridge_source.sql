@@ -15,7 +15,7 @@ insert into public.source_registry
 values
   (gen_random_uuid(), 'Legal Data Hunter (MCP bridge)', 'mcp://legal-data-hunter',
    null, false, null, null, null, 'en', 'mcp_legal_data_hunter', 'manual',
-   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',
+   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',
    'Cross-jurisdiction legislation/case-law/doctrine database (230+ jurisdictions), queried via MCP tool by a Claude session, not HTTP-crawled. Rows inserted into public.signals carry source=''Legal Data Hunter'' and are logged in legal_data_hunter_pulls for idempotency.')
 on conflict do nothing;
 

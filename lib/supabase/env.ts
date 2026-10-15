@@ -1,4 +1,23 @@
-const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
+const ORIGINAL_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
+const RECOVERY_SUPABASE_PROJECT_REF = 'vxosexkwpqbswusapook'
+const ALLOWED_SUPABASE_PROJECT_REFS = new Set([
+  ORIGINAL_SUPABASE_PROJECT_REF,
+  RECOVERY_SUPABASE_PROJECT_REF,
+])
+
+function configuredSupabaseProjectRef() {
+  const configured = process.env.NEXT_PUBLIC_HARBOURVIEW_SUPABASE_PROJECT_REF?.trim()
+    || ORIGINAL_SUPABASE_PROJECT_REF
+
+  if (!ALLOWED_SUPABASE_PROJECT_REFS.has(configured)) {
+    throw new Error(
+      `Unapproved Supabase project ref: ${configured}. Harbourview allows only explicitly reviewed project refs.`
+    )
+  }
+  return configured
+}
+
+const EXPECTED_SUPABASE_PROJECT_REF = configuredSupabaseProjectRef()
 const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
 const LOCAL_SUPABASE_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])

@@ -106,6 +106,95 @@ create table if not exists public.clinical_evidence_claims (
   constraint clinical_evidence_claim_locator_nonempty check (length(btrim(source_locator)) > 0)
 );
 
+-- Replay-only reconciliation of the legacy Clinical Evidence OS and
+-- Prescriber OS concept contracts. CREATE TABLE IF NOT EXISTS cannot add the
+-- lifecycle columns used by the policies below. Preserve the earlier review
+-- gate when mapping its existing rows: only published concepts/aliases become
+-- active in the later lifecycle vocabulary.
+alter table public.clinical_concepts
+  add column if not exists status text not null default 'active'
+    check (status in ('active','superseded','retired')),
+  add column if not exists superseded_by_id uuid
+    references public.clinical_concepts(id) on delete set null;
+
+update public.clinical_concepts
+set status = case when review_status = 'published' then 'active' else 'retired' end;
+
+alter table public.clinical_concept_aliases
+  add column if not exists status text not null default 'active'
+    check (status in ('active','retired'));
+
+update public.clinical_concept_aliases
+set status = case when review_status = 'published' then 'active' else 'retired' end;
+
+-- Replay-only reconciliation of the two checked-in claim contracts. The
+-- earlier operating-system migration creates the legacy columns but explicitly
+-- seeds no rows; this later migration says it is additive yet CREATE TABLE IF
+-- NOT EXISTS alone cannot add the Prescriber OS columns used below.
+alter table public.clinical_evidence_claims
+  add column if not exists concept_id uuid references public.clinical_concepts(id) on delete set null,
+  add column if not exists claim_text text not null,
+  add column if not exists population text,
+  add column if not exists intervention text,
+  add column if not exists comparator text,
+  add column if not exists outcome text,
+  add column if not exists timeframe text,
+  add column if not exists direction text not null default 'uncertain'
+    check (direction in ('benefit','harm','neutral','uncertain')),
+  add column if not exists effect_measure text,
+  add column if not exists effect_value numeric,
+  add column if not exists effect_unit text,
+  add column if not exists ci_lower numeric,
+  add column if not exists ci_upper numeric,
+  add column if not exists absolute_effect text,
+  add column if not exists relative_effect text,
+  add column if not exists clinically_important_difference text,
+  add column if not exists certainty text not null default 'ungraded'
+    check (certainty in ('high','moderate','low','very-low','ungraded','conflicted')),
+  add column if not exists applicability text,
+  add column if not exists publication_family_id text,
+  add column if not exists independence_group_id text,
+  add column if not exists status text not null default 'review-required'
+    check (status in ('current','superseded','retracted','review-required')),
+  add column if not exists superseded_by_id uuid
+    references public.clinical_evidence_claims(id) on delete set null,
+  add column if not exists primary_source_url text not null,
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists reviewed_by uuid;
+
+-- The newer contract replaces these legacy mandatory inputs. Zero-state has no
+-- claim rows, so this changes no data and lets future Prescriber OS writes use
+-- the later authoritative fields.
+alter table public.clinical_evidence_claims
+  alter column claim_key drop not null,
+  alter column claim_kind drop not null,
+  alter column statement drop not null,
+  alter column verified_at drop not null,
+  alter column source_locator set not null;
+
+do $replay_claim_contract$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.clinical_evidence_claims'::regclass
+      and conname = 'clinical_evidence_claim_source_https'
+  ) then
+    alter table public.clinical_evidence_claims
+      add constraint clinical_evidence_claim_source_https
+      check (primary_source_url ~ '^https://');
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.clinical_evidence_claims'::regclass
+      and conname = 'clinical_evidence_claim_locator_nonempty'
+  ) then
+    alter table public.clinical_evidence_claims
+      add constraint clinical_evidence_claim_locator_nonempty
+      check (length(btrim(source_locator)) > 0);
+  end if;
+end
+$replay_claim_contract$;
+
 create index if not exists clinical_evidence_claim_record_idx
   on public.clinical_evidence_claims (evidence_record_id, status);
 create index if not exists clinical_evidence_claim_concept_idx

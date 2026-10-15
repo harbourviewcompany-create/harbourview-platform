@@ -38,8 +38,7 @@ values
 ('GB','commercial_activity','cultivation_prohibited','{"cultivation_of_cannabis_offence":true}'::jsonb,'https://www.gov.uk/guidance/controlled-drugs-domestic-licences','2015-01-01','verified','2026-09-23T00:00:00Z'),
 ('NL','commercial_activity','controlled_supply_chain_experiment','{"production_distribution_sale_quality_controlled":true,"designated_growers":true,"participating_municipalities":true}'::jsonb,'https://www.government.nl/themes/family-health-and-care/controlled-cannabis-supply-chain-experiment','2025-04-07','verified','2026-09-23T00:00:00Z'),
 ('DE','commercial_activity','regulated_framework','{"adult_personal_cultivation":true,"noncommercial_cultivation_associations":true,"medical_cannabis_regulated":true}'::jsonb,'https://www.bundesgesundheitsministerium.de/service/gesetze-und-verordnungen/detail/cannabisgesetz','2024-04-01','verified','2026-09-23T00:00:00Z'),
-('UY','commercial_activity','regulated_cannabis_system','{"licensed_activities":["adult_use_cultivation","medical_cultivation","industrialization","research","analytical_laboratories"]}'::jsonb,'https://ircca.gub.uy/','2013-05-20','verified','2026-09-23T00:00:00Z'),
-('MT','regulator','authority_established','{"authority":"Authority for the Responsible Use of Cannabis","board_appointment_effective":"2025-12-02"}'::jsonb,'https://www.gov.mt/en/Government/DOI/Government%20Gazette/Government%20Notices/Pages/2026/03/GovNotices0303.aspx','2025-12-02','verified','2026-09-23T00:00:00Z')
+('UY','commercial_activity','regulated_cannabis_system','{"licensed_activities":["adult_use_cultivation","medical_cultivation","industrialization","research","analytical_laboratories"]}'::jsonb,'https://ircca.gub.uy/','2013-05-20','verified','2026-09-23T00:00:00Z')
 on conflict do nothing;
 
 comment on table public.jurisdiction_regulators is 'Authority evidence populated only from current official government/regulator sources; absence of a row remains a research gap.';

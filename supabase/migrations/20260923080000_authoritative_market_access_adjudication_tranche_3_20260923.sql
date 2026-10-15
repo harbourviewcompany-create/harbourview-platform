@@ -1,4 +1,11 @@
 -- Authoritative adjudication tranche 3: first-party current sources.
+-- Recovery replay: preserve historical rows while releasing the one-active-direct
+-- uniqueness slot before installing the newer authoritative adjudications.
+update public.regulatory_market_access_evidence
+set active=false
+where jurisdiction_iso2 in ('GH','ZM','VU')
+  and active=true
+  and parent_iso2 is null;
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
 select 'primary-evidence-gh-20260923','GH','medical_limited_trade',

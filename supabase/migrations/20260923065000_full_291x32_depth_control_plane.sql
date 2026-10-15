@@ -50,7 +50,6 @@ values
 ('relationships','Relationships/network edges','network','Evidence-backed relationships between market entities.',false,false,30,270),
 ('opportunities','Commercial opportunities','commercial','Evidence-backed opportunities and eligibility constraints.',false,false,14,280),
 ('signals','Intelligence signals','intelligence','Fresh classified market/regulatory signals.',false,false,7,290),
-('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),
 ('freshness','Source/data freshness','quality','Freshness and expiry state for underlying evidence.',false,false,7,300),
 ('uncertainty','Conflict/uncertainty state','quality','Explicit conflict, stale, inference and blocked state.',false,false,7,310),
 ('research_queue','Research queue/unresolved gaps','quality','Explicit unresolved evidence and research gaps.',false,false,7,320)

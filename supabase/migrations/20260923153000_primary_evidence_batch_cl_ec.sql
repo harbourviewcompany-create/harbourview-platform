@@ -5,14 +5,21 @@
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Chile ISP — narcotics/psychotropics control and cannabis procedures','https://www.ispch.cl/anamed/medicamentos/estupefacientes-y-psicotropicos/','CL','Chile','CL',1,'regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','ISP states it controls lawful narcotics and psychotropics nationally and identifies requirements for import, export, domestic distribution, dispensing and destruction; cannabis procedures are included in the official framework. Verified 2026-09-23.','2026-09-23','medicines_regulator',array['regulatory','import','export','distribution','dispensing'],jsonb_build_object('jurisdiction_key','CL','primary_regulator',true))
+('Chile ISP — narcotics/psychotropics control and cannabis procedures','https://www.ispch.cl/anamed/medicamentos/estupefacientes-y-psicotropicos/','CL','Chile','CL',1,'regulator',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','ISP states it controls lawful narcotics and psychotropics nationally and identifies requirements for import, export, domestic distribution, dispensing and destruction; cannabis procedures are included in the official framework. Verified 2026-09-23.','2026-09-23','health_authority',array['regulatory','import','export','distribution','dispensing'],jsonb_build_object('jurisdiction_key','CL','primary_regulator',true))
 on conflict (source_url) do update set verification_notes='Chile ISP controlled-substances and cannabis procedures verified 2026-09-23.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '7 days',updated_at=now();
 
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Ecuador ARCSA — cannabis/hemp finished-product technical regulation','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','EC','Ecuador','EC',1,'regulator',true,true,'south_america','es','pdf_snapshot','monthly','verified',now()+interval '30 days','online','ARCSA regulation establishes controls for non-psychoactive cannabis/hemp finished products, including manufacturing, commercialization and import requirements, and specifies ARCSA authorization/registration conditions. Verified 2026-09-23.','2026-09-23','medicines_regulator',array['regulatory','hemp','finished_products','import'],jsonb_build_object('jurisdiction_key','EC','primary_regulator',true))
+('Ecuador ARCSA — cannabis/hemp finished-product technical regulation','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','EC','Ecuador','EC',1,'regulator',true,true,'south_america','es','pdf_snapshot','monthly','verified',now()+interval '30 days','online','ARCSA regulation establishes controls for non-psychoactive cannabis/hemp finished products, including manufacturing, commercialization and import requirements, and specifies ARCSA authorization/registration conditions. Verified 2026-09-23.','2026-09-23','health_authority',array['regulatory','hemp','finished_products','import'],jsonb_build_object('jurisdiction_key','EC','primary_regulator',true))
 on conflict (source_url) do update set verification_notes='ARCSA cannabis/hemp finished-product regulation verified 2026-09-23.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '30 days',updated_at=now();
+
+-- Recovery replay: retire prior active direct evidence before installing the newer CL/EC authority rows.
+update public.regulatory_market_access_evidence
+set active=false
+where jurisdiction_iso2 in ('CL','EC')
+  and active=true
+  and parent_iso2 is null;
 
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
@@ -37,7 +44,7 @@ values
  'any','national','Instituto de Salud Pública de Chile (ISP)','https://www.ispch.cl/anamed/medicamentos/estupefacientes-y-psicotropicos/','2011-06-25',now(),now(),now()+interval '180 days','verified'),
 ('primary-evidence-ec-20260923','EC','primary-evidence-claim:ec-nonpsychoactive-cannabis-product-controls-20260923',
  'Ecuador requires ARCSA authorization/registration controls for specified finished products containing non-psychoactive cannabis or hemp, including imported products, and requires authorized establishments for applicable manufacturing and commercialization.',
- 'non_psychoactive','national','Agencia Nacional de Regulación, Control y Vigilancia Sanitaria (ARCSA)','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','2021-02-03',now(),now(),now()+interval '180 days','verified')
+ 'finished_product','national','Agencia Nacional de Regulación, Control y Vigilancia Sanitaria (ARCSA)','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','2021-02-03',now(),now(),now()+interval '180 days','verified')
 on conflict (claim_key) do update set claim_text=excluded.claim_text,authority_name=excluded.authority_name,authority_url=excluded.authority_url,source_effective_date=excluded.source_effective_date,retrieved_at=now(),verified_at=now(),expires_at=now()+interval '180 days',evidence_status='verified';
 
 insert into public.regulatory_pathways
@@ -49,7 +56,7 @@ select c.id,'CL','depth-v1-cl-controlled-medical-cannabis','Controlled medicinal
 array['https://www.ispch.cl/anamed/medicamentos/estupefacientes-y-psicotropicos/','https://www.ispch.cl/anamed/medicamentos/registro-sanitario-de-productos-farmaceuticos/'],
 'needs_review',now()
 from public.countries c
-where c.iso2='CL'
+where c.iso_alpha2='CL'
   and not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='CL' and p.slug='depth-v1-cl-controlled-medical-cannabis');
 
 update public.regulatory_pathways
@@ -66,19 +73,19 @@ where iso_alpha2='CL' and slug='depth-v1-cl-controlled-medical-cannabis';
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
-select c.id,'EC','depth-v1-ec-nonpsychoactive-cannabis-products','Regulated non-psychoactive cannabis/hemp product pathway','licensed_market',
+select c.id,'EC','depth-v1-ec-nonpsychoactive-cannabis-products','Regulated non-psychoactive cannabis/hemp product pathway','domestic_authorization',
 'ARCSA-DE-002-2021-MAFG; Acuerdo Ministerial 109; medicinal-cannabis therapeutic-use regulations',
 'ARCSA / Ministry of Health','active','2021-02-03',
 'Ecuador regulates specified finished products containing non-psychoactive cannabis or hemp. ARCSA rules require operating authorization and product registration/notification as applicable; imported finished products are subject to registration/notification requirements, while applicable medicines and medicinal products are subject to pharmaceutical controls.',
 array['https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/06/Acuerdo-Ministerial-148_Reglamento-para-el-uso-terapeutico-prescripcion-y-dispensacion-del-cannabis-medicinal-y-productos-farmaceuticos-que-contienen-cannabinoides.pdf'],
 'needs_review',now()
 from public.countries c
-where c.iso2='EC'
+where c.iso_alpha2='EC'
   and not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='EC' and p.slug='depth-v1-ec-nonpsychoactive-cannabis-products');
 
 update public.regulatory_pathways
 set name='Regulated non-psychoactive cannabis/hemp product pathway',
-    pathway_type='licensed_market',
+    pathway_type='domestic_authorization',
     legal_basis='ARCSA-DE-002-2021-MAFG; Acuerdo Ministerial 109; medicinal-cannabis therapeutic-use regulations',
     regulator='ARCSA / Ministry of Health',
     status='active',

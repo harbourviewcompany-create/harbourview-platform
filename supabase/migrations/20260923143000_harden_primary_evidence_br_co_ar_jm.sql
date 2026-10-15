@@ -15,7 +15,7 @@ on conflict (source_url) do update set verification_notes='ANVISA states RDC 1.0
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Colombia — Decreto 1138 de 2025 medical cannabis access reform','https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=268436','CO','Colombia','CO',1,'legal',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Primary government legal text dated 2025-10-27. It states cannabis as a finished product for direct human or veterinary consumption may only be commercialized for medical purposes and establishes transition/technical-regulation provisions. Verified 2026-09-23.','2026-09-23','executive_legal',array['legal','medical','commercialisation'],jsonb_build_object('jurisdiction_key','CO','primary_legal_source',true))
+('Colombia — Decreto 1138 de 2025 medical cannabis access reform','https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=268436','CO','Colombia','CO',1,'legal',true,true,'south_america','es','html_snapshot','weekly','verified',now()+interval '7 days','online','Primary government legal text dated 2025-10-27. It states cannabis as a finished product for direct human or veterinary consumption may only be commercialized for medical purposes and establishes transition/technical-regulation provisions. Verified 2026-09-23.','2026-09-23','legislature',array['legal','medical','commercialisation'],jsonb_build_object('jurisdiction_key','CO','primary_legal_source',true))
 on conflict (source_url) do update set verification_notes='Primary Colombian government legal text verified 2026-09-23; medical-only finished-product commercialization language captured.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '7 days',updated_at=now();
 
 -- Argentina: correct the pathway description to match the actual 2026
@@ -23,7 +23,7 @@ on conflict (source_url) do update set verification_notes='Primary Colombian gov
 -- commercial pathway.
 update public.regulatory_pathways
 set name='Licensed horticultural hemp production and trade',
-    pathway_type='licensed_market',
+    pathway_type='domestic_authorization',
     legal_basis='ARICCAME Resolution 69/2026',
     effective_date='2026-10-16',
     summary='Resolution 69/2026 establishes ARICCAME licences for production, conditioning, storage, commercialisation and related activities involving horticultural hemp with THC below 1%, including licences for derivative products and foreign trade. This record is not evidence of an adult-use cannabis retail market and is distinct from Argentina medical-cannabis pathways.',
@@ -43,7 +43,7 @@ where iso2='AR' and title like 'ARICCAME Resolution 69/2026 licensing regime eff
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
 values
-('Jamaica CLA — current licence application requirements and fees','https://www.cla.org.jm/application-requirements-and-process/','JM','Jamaica','JM',1,'regulator',true,true,'caribbean','en','html_snapshot','monthly','verified',now()+interval '30 days','online','Current CLA licensing page documents five licence categories, application review, supporting documents and current processing/licence fees. Verified 2026-09-23.','2026-09-23','cannabis_regulator',array['licensing','fees','regulatory'],jsonb_build_object('jurisdiction_key','JM','primary_regulator',true))
+('Jamaica CLA — current licence application requirements and fees','https://www.cla.org.jm/application-requirements-and-process/','JM','Jamaica','JM',1,'regulator',true,true,'caribbean','en','html_snapshot','monthly','verified',now()+interval '30 days','online','Current CLA licensing page documents five licence categories, application review, supporting documents and current processing/licence fees. Verified 2026-09-23.','2026-09-23','drug_control_authority',array['licensing','fees','regulatory'],jsonb_build_object('jurisdiction_key','JM','primary_regulator',true))
 on conflict (source_url) do update set verification_notes='Current CLA licensing and application page verified 2026-09-23.',verification_checked_at=now(),relevance_status='verified',is_active=true,next_crawl_at=now()+interval '30 days',updated_at=now();
 
 update public.regulatory_pathways

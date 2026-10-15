@@ -5,12 +5,12 @@
 
 do $$
 begin
-  execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck on public.jurisdiction_regulatory_rules';
-  execute 'drop constraint if exists jurisdiction_regulators_verified_provenance_ck on public.jurisdiction_regulators';
-  execute 'drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck on public.jurisdiction_regulatory_changes';
-  execute 'drop constraint if exists jurisdiction_market_participants_verified_provenance_ck on public.jurisdiction_market_participants';
-  execute 'drop constraint if exists jurisdiction_relationships_verified_provenance_ck on public.jurisdiction_relationships';
-  execute 'drop constraint if exists jurisdiction_opportunities_verified_provenance_ck on public.jurisdiction_opportunities';
+  execute 'alter table public.jurisdiction_regulatory_rules drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck';
+  execute 'alter table public.jurisdiction_regulators drop constraint if exists jurisdiction_regulators_verified_provenance_ck';
+  execute 'alter table public.jurisdiction_regulatory_changes drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck';
+  execute 'alter table public.jurisdiction_market_participants drop constraint if exists jurisdiction_market_participants_verified_provenance_ck';
+  execute 'alter table public.jurisdiction_relationships drop constraint if exists jurisdiction_relationships_verified_provenance_ck';
+  execute 'alter table public.jurisdiction_opportunities drop constraint if exists jurisdiction_opportunities_verified_provenance_ck';
 end $$;
 
 create or replace function public.enforce_verified_evidence_provenance()

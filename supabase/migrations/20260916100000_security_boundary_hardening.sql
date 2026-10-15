@@ -59,7 +59,7 @@ begin
       and (p.proconfig is null or not exists (
         select 1 from unnest(p.proconfig) c where c like 'search_path=%'
       ))
-      and has_function_privilege(p.oid,'public','execute')
+      and has_function_privilege('public', p.oid, 'execute')
   loop
     execute format(
       'alter function %I.%I(%s) set search_path = pg_catalog, public, api, signals, regulatory_signals, extensions',
@@ -76,10 +76,10 @@ begin
   for r in
     select schemaname, tablename, policyname, qual, with_check from pg_policies
     where schemaname in ('public','api','signals','regulatory_signals','storage')
-      and (coalesce(qual,'') ~ '(^|[^A-Za-z_])auth\\.uid\\(\\)'
-        or coalesce(with_check,'') ~ '(^|[^A-Za-z_])auth\\.uid\\(\\)')
-      and (coalesce(qual,'') !~ '\\( SELECT auth\\.uid\\(\\)'
-        or coalesce(with_check,'') !~ '\\( SELECT auth\\.uid\\(\\)')
+      and (coalesce(qual,'') ~ '(^|[^A-Za-z_])auth\.uid\(\)'
+        or coalesce(with_check,'') ~ '(^|[^A-Za-z_])auth\.uid\(\)')
+      and (coalesce(qual,'') !~ '\( SELECT auth\.uid\(\)'
+        or coalesce(with_check,'') !~ '\( SELECT auth\.uid\(\)')
   loop
     using_expr:=r.qual; check_expr:=r.with_check;
     if using_expr is not null then using_expr:=regexp_replace(using_expr,'(^|[^A-Za-z_])auth\\.uid\\(\\)','\\1(SELECT auth.uid())','g'); end if;

@@ -235,7 +235,12 @@ export type GlobeSignalsData = Pick<GlobeLiveData, 'signalsByIso2' | 'unmappedSi
 export async function getGlobeSignals(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeSignalsData> {
+  // The api.signals view has accumulated internal classifier/editorial
+  // columns over time. The globe needs only the public base-table projection,
+  // whose anon SELECT remains RLS-governed. Target public explicitly instead
+  // of widening anonymous access to api.signals.
   const { data: signalRows, error: signalsError } = await supabase
+    .schema('public')
     .from('signals')
     .select('id, headline, score, cat, country, country_iso2, created_at')
     .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())

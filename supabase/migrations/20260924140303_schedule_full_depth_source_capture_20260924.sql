@@ -3,7 +3,7 @@ select cron.schedule(
   '*/2 * * * *',
   $job$
     select net.http_post(
-      url := 'https://zvxdgdkukjrrwamdpqrg.supabase.co/functions/v1/source-snapshot-capture?limit=8',
+      url := 'https://vxosexkwpqbswusapook.supabase.co/functions/v1/source-snapshot-capture?limit=8',
       headers := jsonb_build_object(
         'Content-Type','application/json',
         'x-harbourview-operator-secret',

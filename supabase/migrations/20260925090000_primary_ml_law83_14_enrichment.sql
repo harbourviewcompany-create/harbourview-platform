@@ -28,7 +28,7 @@ values
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
-select 'ee9ec5dd-845e-41ae-b088-98a84f667a74','ML','depth-v1-ml-authorized-research','Special therapeutic/research/scientific authorization','domestic_authorization',
+select (select id from public.countries where iso_alpha2='ML'),'ML','depth-v1-ml-authorized-research','Special therapeutic/research/scientific authorization','domestic_authorization',
 'Loi No. 83-14, Article 2','Minister of Public Health','active',null,
 'Special authorization may be issued for therapeutic, medical-research or scientific purposes; this is not a general commercial cannabis retail pathway.',
 ARRAY['https://www.sgg-mali.ml/'],'needs_review',now()

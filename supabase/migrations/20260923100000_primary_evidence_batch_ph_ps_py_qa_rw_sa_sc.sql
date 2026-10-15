@@ -13,19 +13,27 @@ insert into public.source_registry
 (source_name,source_url,jurisdiction,country,iso,region,language,adapter,crawl_cadence,relevance_status,
  jurisdiction_code,tier,requires_auth,source_type,crawl_allowed,regulator_class,notes)
 values
-('Philippines Dangerous Drugs Board — Joint DDB-PDEA cannabis reclassification statement','https://ddb.gov.ph/joint-ddb-pdea-statement-on-the-reclassification-of-cannabis/','Philippines','Philippines','PH','Asia','en','html_snapshot','monthly','active','PH',1,false,'government_regulator',true,'national_drug_authority','Current DDB/PDEA statement confirms cannabis remains a dangerous drug and unauthorized cultivation, possession, use, sale, administration, dispensation, delivery, distribution and transport remain punishable.'),
-('Palestine Ministry of Health — Laws','https://www.moh.gov.ps/portal/laws/','Palestine','Palestine','PS','Asia','ar','html_snapshot','monthly','active','PS',1,false,'government_regulator',true,'health_ministry','Ministry of Health legal index lists Law No. 7 of 2013 on narcotic drugs and psychotropic substances.'),
-('Paraguay SENAD — Registro y Fiscalización','https://senad.gov.py/registro-y-fiscalizacion/','Paraguay','Paraguay','PY','Americas','es','html_snapshot','monthly','active','PY',1,false,'government_regulator',true,'national_drug_authority','Current 2026 SENAD page publishes registration forms for industrial hemp and medicinal cannabis and transport documentation.'),
-('Qatar Ministry of Interior — Drug Enforcement Department','https://portal.moi.gov.qa/wps/portal/MOIInternet/departmentcommittees/drugenforcement/','Qatar','Qatar','QA','Asia','ar','html_snapshot','monthly','active','QA',1,false,'government_regulator',true,'national_drug_authority','Current MOI narcotics law states import, export, production, manufacture, cultivation, possession, trade and related activity are prohibited except under statutory conditions.'),
-('Rwanda FDA — Guidelines for Importation and Exportation of Pharmaceutical Products','https://rwandafda.gov.rw/monitoring-tool/documents-management/uploads/1/Guidelines/1776078758_Guidelines%20for%20Importation%20and%20Exportation%20of%20Pharmaceutical%20Products.pdf','Rwanda','Rwanda','RW','Africa','en','html_snapshot','monthly','active','RW',1,false,'government_regulator',true,'health_regulator','Current Rwanda FDA guidance expressly provides cannabis/cannabis-product import/export licensing and cultivation/manufacturing eligibility for medical or research purposes.'),
-('Saudi Arabia Umm al-Qura — Narcotic and psychotropic schedules','https://www.uqn.gov.sa/decisions-and-regulations/4001776','Saudi Arabia','Saudi Arabia','SA','Asia','ar','html_snapshot','monthly','active','SA',1,false,'government_regulator',true,'health_regulator','Current 2026 controlled-substance schedule expressly lists cannabis, cannabis resin, extracts and tinctures; herbal-source CBD compounds are generally prohibited except specified fully synthetic/approved pharmaceutical conditions.'),
-('Seychelles State House — government position on recreational marijuana','https://www.statehouse.gov.sc/news/6726/state-house-clarifies-presidential-pardons-drug-policy-security-matters-and-related-issues','Seychelles','Seychelles','SC','Africa','en','html_snapshot','monthly','active','SC',1,false,'government_regulator',true,'executive_government','Government statement says no decision has been taken to legalize recreational marijuana; medical perspective is separately discussed.')
+('Philippines Dangerous Drugs Board — Joint DDB-PDEA cannabis reclassification statement','https://ddb.gov.ph/joint-ddb-pdea-statement-on-the-reclassification-of-cannabis/','Philippines','Philippines','PH','Asia','en','html_snapshot','monthly','active','PH',1,false,'government_regulator',true,'drug_control_authority','Current DDB/PDEA statement confirms cannabis remains a dangerous drug and unauthorized cultivation, possession, use, sale, administration, dispensation, delivery, distribution and transport remain punishable.'),
+('Palestine Ministry of Health — Laws','https://www.moh.gov.ps/portal/laws/','Palestine','Palestine','PS','Asia','ar','html_snapshot','monthly','active','PS',1,false,'government_regulator',true,'health_authority','Ministry of Health legal index lists Law No. 7 of 2013 on narcotic drugs and psychotropic substances.'),
+('Paraguay SENAD — Registro y Fiscalización','https://senad.gov.py/registro-y-fiscalizacion/','Paraguay','Paraguay','PY','Americas','es','html_snapshot','monthly','active','PY',1,false,'government_regulator',true,'drug_control_authority','Current 2026 SENAD page publishes registration forms for industrial hemp and medicinal cannabis and transport documentation.'),
+('Qatar Ministry of Interior — Drug Enforcement Department','https://portal.moi.gov.qa/wps/portal/MOIInternet/departmentcommittees/drugenforcement/','Qatar','Qatar','QA','Asia','ar','html_snapshot','monthly','active','QA',1,false,'government_regulator',true,'drug_control_authority','Current MOI narcotics law states import, export, production, manufacture, cultivation, possession, trade and related activity are prohibited except under statutory conditions.'),
+('Rwanda FDA — Guidelines for Importation and Exportation of Pharmaceutical Products','https://rwandafda.gov.rw/monitoring-tool/documents-management/uploads/1/Guidelines/1776078758_Guidelines%20for%20Importation%20and%20Exportation%20of%20Pharmaceutical%20Products.pdf','Rwanda','Rwanda','RW','Africa','en','html_snapshot','monthly','active','RW',1,false,'government_regulator',true,'health_authority','Current Rwanda FDA guidance expressly provides cannabis/cannabis-product import/export licensing and cultivation/manufacturing eligibility for medical or research purposes.'),
+('Saudi Arabia Umm al-Qura — Narcotic and psychotropic schedules','https://www.uqn.gov.sa/decisions-and-regulations/4001776','Saudi Arabia','Saudi Arabia','SA','Asia','ar','html_snapshot','monthly','active','SA',1,false,'government_regulator',true,'health_authority','Current 2026 controlled-substance schedule expressly lists cannabis, cannabis resin, extracts and tinctures; herbal-source CBD compounds are generally prohibited except specified fully synthetic/approved pharmaceutical conditions.'),
+('Seychelles State House — government position on recreational marijuana','https://www.statehouse.gov.sc/news/6726/state-house-clarifies-presidential-pardons-drug-policy-security-matters-and-related-issues','Seychelles','Seychelles','SC','Africa','en','html_snapshot','monthly','active','SC',1,false,'government_regulator',true,'other','Government statement says no decision has been taken to legalize recreational marijuana; medical perspective is separately discussed.')
 on conflict (source_url) do update set
   is_active=true,
   jurisdiction_code=excluded.jurisdiction_code,
   tier=excluded.tier,
   notes=excluded.notes,
   updated_at=now();
+
+-- Recovery replay: release the one-active-direct market-access slot before
+-- installing the newer authoritative evidence rows. Historical evidence is retained.
+update public.regulatory_market_access_evidence
+set active=false
+where jurisdiction_iso2 in ('PH','PS','PY','QA','RW','SA','SC')
+  and active=true
+  and parent_iso2 is null;
 
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
@@ -81,43 +89,10 @@ on conflict (evidence_key) do update set
   expires_at=excluded.expires_at,
   active=true;
 
--- Add explicit citation records tied to the newly adjudicated evidence.
-insert into public.regulatory_citations
-(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
-select
-  'regulatory_market_access_evidence',
-  e.id,
-  case e.jurisdiction_iso2
-    when 'PH' then 'DDB/PDEA cannabis reclassification statement'
-    when 'PS' then 'Palestine Ministry of Health narcotics-law index'
-    when 'PY' then 'SENAD Registro y Fiscalización'
-    when 'QA' then 'Qatar Drug Enforcement Department narcotics law'
-    when 'RW' then 'Rwanda FDA pharmaceutical import/export guidance'
-    when 'SA' then 'Umm al-Qura controlled-substance schedules'
-    when 'SC' then 'State House Seychelles government statement'
-  end,
-  null,
-  'official',
-  e.authority_url,
-  e.source_effective_date,
-  current_date,
-  e.rationale
-from public.regulatory_market_access_evidence e
-where e.evidence_key in (
-  'primary-evidence-ph-ddb-cannabis-20260923',
-  'primary-evidence-ps-moh-narcotics-2013-20260923',
-  'primary-evidence-py-senad-medicinal-cannabis-20260923',
-  'primary-evidence-qa-moi-controlled-cannabis-20260923',
-  'primary-evidence-rw-fda-medical-cannabis-20260923',
-  'primary-evidence-sa-ummalqura-cannabis-20260923',
-  'primary-evidence-sc-government-marijuana-20260923'
-)
-and not exists (
-  select 1 from public.regulatory_citations rc
-  where rc.entity_type='regulatory_market_access_evidence'
-    and rc.entity_id=e.id
-    and rc.citation_url=e.authority_url
-);
+-- Recovery replay: the reconstructed regulatory_market_access_evidence table
+-- is keyed by evidence_key and has no UUID id column, while regulatory_citations.entity_id
+-- is UUID. Preserve the evidence rows and their authority_url/rationale provenance;
+-- do not fabricate a citation identity that the schema cannot represent.
 
 -- Preserve fail-closed execution semantics: these new rows have no captured
 -- source hash yet, so the claim layer must remain partial until the source engine

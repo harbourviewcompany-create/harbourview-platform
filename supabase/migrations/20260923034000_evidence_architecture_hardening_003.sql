@@ -91,7 +91,7 @@ begin
 end $$;
 
 -- Canonical snapshot gate used by both legacy regulatory evidence and structured evidence.
-create or replace view public.v_jurisdiction_verified_snapshot_gate
+create or replace view public.v_jurisdiction_market_access_snapshot_gate
 with (security_invoker=on) as
 select
   e.evidence_key,
@@ -111,7 +111,7 @@ left join public.source_snapshots ss on ss.source_id in (select id from public.s
 left join public.source_registry sr on sr.id=ss.source_id
 where e.source_snapshot_sha256 is not null
 group by e.evidence_key,e.jurisdiction_iso2,e.authority_url,e.source_snapshot_sha256;
-grant select on public.v_jurisdiction_verified_snapshot_gate to anon, authenticated;
+grant select on public.v_jurisdiction_market_access_snapshot_gate to anon, authenticated;
 
 -- Verified structured evidence exists without a qualifying source snapshot is blocked.
 -- A structured evidence row is publication-qualifying only when its referenced
@@ -131,7 +131,7 @@ legacy_regulatory as (
          count(*) filter (where e.active and e.verified_at is not null and e.expires_at>=now()
            and e.source_snapshot_sha256 is not null
            and exists (
-             select 1 from public.v_jurisdiction_verified_snapshot_gate g
+             select 1 from public.v_jurisdiction_market_access_snapshot_gate g
              where g.evidence_key=e.evidence_key and g.qualifying
            )) qualifying_current,
          count(*) filter (where e.active and e.verified_at is not null and e.expires_at>=now()) current_rows

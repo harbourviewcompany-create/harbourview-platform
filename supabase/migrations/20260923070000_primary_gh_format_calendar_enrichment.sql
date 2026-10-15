@@ -1,13 +1,13 @@
 -- Primary Ghana format and regulatory-calendar enrichment from NACOC and Ghana Ministry of the Interior.
 insert into public.pathway_format_rules
 (pathway_id,format_id,status,conditions,notes,source_urls,verification,effective_date,packaging_labelling)
-select '5796e807-c701-4c51-80a5-fdaf74a60ddb',pf.id,'permitted',
+select (select id from public.regulatory_pathways where iso_alpha2='GH' and slug='gh-hemp'),pf.id,'permitted',
 '{"licensed_processing":true,"low_thc_max":0.3}'::jsonb,
 'Ghana NACOC processing licence identifies oils and extracts as finished goods produced under licensed processing; applicable low-THC and compliance controls remain in force.',
 array['https://portal.ncc.gov.gh/licenses/processing'],'needs_review','2026-02-26',
 'NACOC requires THC/CBD content, allergens, dosage and warnings on labels.'
 from public.product_formats pf where pf.slug in ('oral_oil','extracts_concentrates')
-and not exists(select 1 from public.pathway_format_rules pfr where pfr.pathway_id='5796e807-c701-4c51-80a5-fdaf74a60ddb' and pfr.format_id=pf.id);
+and not exists(select 1 from public.pathway_format_rules pfr where pfr.pathway_id=(select id from public.regulatory_pathways where iso_alpha2='GH' and slug='gh-hemp') and pfr.format_id=pf.id);
 
 insert into public.regulatory_citations
 (entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
@@ -16,13 +16,13 @@ select 'rule',pfr.id,'Ghana NACOC Processing Licence','Processing licence — fi
 'Processing licence authorizes processing raw cannabis into finished goods such as oils, extracts, fabrics, or other industrial/medicinal products.'
 from public.pathway_format_rules pfr
 join public.product_formats pf on pf.id=pfr.format_id
-where pfr.pathway_id='5796e807-c701-4c51-80a5-fdaf74a60ddb'
+where pfr.pathway_id=(select id from public.regulatory_pathways where iso_alpha2='GH' and slug='gh-hemp')
 and pf.slug in ('oral_oil','extracts_concentrates')
 and not exists(select 1 from public.regulatory_citations c where c.entity_type='rule' and c.entity_id=pfr.id and c.citation_url='https://portal.ncc.gov.gh/licenses/processing');
 
 update public.pathway_format_rules pfr set verification='verified',updated_at=now()
 from public.product_formats pf
-where pfr.pathway_id='5796e807-c701-4c51-80a5-fdaf74a60ddb'
+where pfr.pathway_id=(select id from public.regulatory_pathways where iso_alpha2='GH' and slug='gh-hemp')
 and pfr.format_id=pf.id and pf.slug in ('oral_oil','extracts_concentrates');
 
 insert into public.regulatory_calendar
