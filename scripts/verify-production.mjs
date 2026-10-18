@@ -45,6 +45,17 @@ const publicRoutes = [
     ],
   },
   {
+    // This is a public server-rendered route and must survive database outages.
+    // A runtime HTTP 500 must fail production verification even if other pages work.
+    route: '/markets',
+    requiredAny: [
+      'global cannabis markets',
+      'weekly intelligence briefings',
+      'reviewed briefing',
+      'market intelligence',
+    ],
+  },
+  {
     route: '/about',
     requiredAny: [
       'about harbourview',
